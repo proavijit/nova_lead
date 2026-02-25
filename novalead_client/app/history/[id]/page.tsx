@@ -14,9 +14,7 @@ export default function HistoryDetailPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-1">
         <h1 className="text-3xl font-bold tracking-tight">Search Results</h1>
-        {data?.search && (
-          <p className="text-muted-foreground italic">"{data.search.prompt}"</p>
-        )}
+        {data?.search && <p className="text-muted-foreground italic">"{data.search.prompt}"</p>}
       </div>
       <SearchResultsTable leads={data?.leads ?? []} isLoading={isLoading} />
     </div>

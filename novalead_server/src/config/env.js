@@ -18,6 +18,7 @@ const envSchema = Joi.object({
 
   EXPLORIUM_API_KEY: Joi.string().required(),
   EXPLORIUM_BASE_URL: Joi.string().uri().required(),
+  CORS_ORIGIN: Joi.string().allow('').default('http://localhost:3000,http://localhost:3001'),
 
   CREDIT_COST_PER_SEARCH: Joi.number().integer().min(1).default(1),
   INITIAL_CREDITS: Joi.number().integer().min(0).default(10)
@@ -25,6 +26,7 @@ const envSchema = Joi.object({
 
 function getEnv() {
   if (cachedEnv) return cachedEnv;
+  const clean = (value) => (typeof value === 'string' ? value.trim() : value);
 
   const {
     PORT,
@@ -37,24 +39,26 @@ function getEnv() {
     OPENROUTER_MODEL,
     EXPLORIUM_API_KEY,
     EXPLORIUM_BASE_URL,
+    CORS_ORIGIN,
     CREDIT_COST_PER_SEARCH,
     INITIAL_CREDITS
   } = process.env;
 
   const { value, error } = envSchema.validate(
     {
-      PORT,
-      NODE_ENV,
-      SUPABASE_URL,
-      SUPABASE_SERVICE_ROLE_KEY,
-      JWT_SECRET,
-      JWT_EXPIRES_IN,
-      OPENROUTER_API_KEY,
-      OPENROUTER_MODEL,
-      EXPLORIUM_API_KEY,
-      EXPLORIUM_BASE_URL,
-      CREDIT_COST_PER_SEARCH,
-      INITIAL_CREDITS
+      PORT: clean(PORT),
+      NODE_ENV: clean(NODE_ENV),
+      SUPABASE_URL: clean(SUPABASE_URL),
+      SUPABASE_SERVICE_ROLE_KEY: clean(SUPABASE_SERVICE_ROLE_KEY),
+      JWT_SECRET: clean(JWT_SECRET),
+      JWT_EXPIRES_IN: clean(JWT_EXPIRES_IN),
+      OPENROUTER_API_KEY: clean(OPENROUTER_API_KEY),
+      OPENROUTER_MODEL: clean(OPENROUTER_MODEL),
+      EXPLORIUM_API_KEY: clean(EXPLORIUM_API_KEY),
+      EXPLORIUM_BASE_URL: clean(EXPLORIUM_BASE_URL),
+      CORS_ORIGIN: clean(CORS_ORIGIN),
+      CREDIT_COST_PER_SEARCH: clean(CREDIT_COST_PER_SEARCH),
+      INITIAL_CREDITS: clean(INITIAL_CREDITS)
     },
     {
       abortEarly: false,

@@ -4,16 +4,19 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 
 const { globalLimiter } = require('./middleware/rateLimit.middleware');
+const { getEnv } = require('./config/env');
 const logger = require('./utils/logger');
 const errorHandler = require('./utils/errorHandler');
 const apiRouter = require('./routes');
 
 const app = express();
+const env = getEnv();
+const corsOriginList = env.CORS_ORIGIN.split(',').map((origin) => origin.trim()).filter(Boolean);
 
 app.use(helmet());
 app.use(
   cors({
-    origin: ['http://localhost:3000', 'http://localhost:3001'],
+    origin: corsOriginList.length ? corsOriginList : true,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']
