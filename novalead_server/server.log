@@ -1,0 +1,10 @@
+[dotenv@17.3.1] injecting env (13) from .env -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }
+[DB] Supabase URL: https://xsksfavlzheeygcbqutt.supabase.co
+[DB] Key starts with: eyJhbGciOi...
+2026-02-25T08:53:17.116Z [[32minfo[39m]: Server is running on port 5000
+2026-02-25T08:53:31.249Z [[32minfo[39m]: ::1 - - [25/Feb/2026:08:53:31 +0000] "POST /api/v1/prospects/search HTTP/1.1" 200 1406 "-" "curl/8.14.1"
+2026-02-25T08:53:41.200Z [[32minfo[39m]: ::1 - - [25/Feb/2026:08:53:41 +0000] "POST /api/v1/prospects/search HTTP/1.1" 200 1378 "-" "curl/8.14.1"
+2026-02-25T08:59:38.203Z [[32minfo[39m]: ::1 - - [25/Feb/2026:08:59:38 +0000] "POST /api/v1/prospects/search HTTP/1.1" 200 1376 "http://localhost:3001/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+2026-02-25T09:00:22.446Z [[32minfo[39m]: ::1 - - [25/Feb/2026:09:00:22 +0000] "POST /api/v1/prospects/search HTTP/1.1" 200 1491 "http://localhost:3001/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+2026-02-25T09:01:22.978Z [[32minfo[39m]: ::1 - - [25/Feb/2026:09:01:22 +0000] "GET /api/v1/searches HTTP/1.1" 200 66 "http://localhost:3001/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+2026-02-25T09:04:20.516Z [[32minfo[39m]: ::1 - - [25/Feb/2026:09:04:20 +0000] "POST /api/v1/prospects/search HTTP/1.1" 200 1596 "http://localhost:3001/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
