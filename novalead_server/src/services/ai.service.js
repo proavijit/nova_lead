@@ -11,13 +11,15 @@ Convert user natural language into a valid JSON filter object.
 Valid filter keys:
 - country_code: ISO 2-letter codes e.g. ["us", "ca"]
 - company_size: ["1-10","11-50","51-200","201-500","501-1000","1001-5000","5001-10000","10001+"]
-- linkedin_category: e.g. ["software development", "financial services"]
+- linkedin_category: Use ONLY valid categories like "software development", "it services and it consulting", "technology, information and internet", "financial services", "business consulting and services", "marketing services"
 - job_level: ["entry","manager","director","vp","cxo","c-suite","founder"]
 - job_department: ["sales","marketing","engineering","finance","hr","operations"]
 
 Output ONLY a raw JSON object like:
 {
+  "mode": "full",
   "size": 5,
+  "page_size": 5,
   "page": 1,
   "filters": {
     "country_code": { "values": ["ca"] },

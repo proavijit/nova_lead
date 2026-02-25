@@ -11,7 +11,7 @@ export function useSearchHistory() {
     queryKey: ['searches'],
     queryFn: async () => {
       const { data } = await api.get<SearchHistoryResponse>('/searches')
-      return data.searches
+      return data.data.items
     },
     staleTime: 30_000,
     retry: 1,
@@ -26,7 +26,7 @@ export function useSearchById(id: string) {
     queryKey: ['searches', id],
     queryFn: async () => {
       const { data } = await api.get<SearchDetailResponse>(`/searches/${id}`)
-      return data
+      return data.data
     },
     enabled: Boolean(id),
     retry: 1

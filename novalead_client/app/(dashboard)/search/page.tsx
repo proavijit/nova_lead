@@ -12,14 +12,14 @@ import { useSearch } from '@/hooks/useSearch'
 export default function SearchPage() {
   const { mutate, isPending, data, error } = useSearch()
 
-  const leads = data?.leads ?? []
+  const leads = data?.data?.leads ?? []
 
   const csv = useMemo(() => {
     if (!leads.length) return ''
 
     const rows = [
       ['name', 'title', 'linkedin_url', 'company_name', 'company_linkedin_url', 'company_website'].join(','),
-      ...leads.map((lead) =>
+      ...leads.map((lead: any) =>
         [
           lead.name,
           lead.title,
@@ -52,7 +52,7 @@ export default function SearchPage() {
 
       {error && <ErrorAlert message={(error as any)?.response?.data?.error || 'Search failed'} />}
 
-      <FilterPreview filters={data?.filters} />
+      <FilterPreview filters={data?.data?.filters} />
 
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">Results</h2>

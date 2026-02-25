@@ -20,37 +20,56 @@ export function Sidebar() {
   const { data } = useCredits()
 
   return (
-    <aside className="flex h-full w-full flex-col border-r bg-card px-4 py-6 md:w-64">
-      <div>
-        <p className="text-lg font-semibold">NovaLead</p>
-        <p className="text-xs text-muted-foreground">AI Prospecting</p>
+    <aside className="sticky top-0 flex h-screen w-full flex-col border-r bg-card/50 backdrop-blur-xl px-4 py-8 md:w-72">
+      <div className="px-3 mb-8">
+        <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-blue-600 bg-clip-text text-transparent">
+          NovaLead
+        </h1>
+        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mt-1">
+          Revenue Intelligence
+        </p>
       </div>
 
-      <Separator className="my-4" />
-
-      <div className="mb-4 flex items-center justify-between rounded-md bg-muted/60 px-3 py-2">
-        <span className="text-sm text-muted-foreground">Credits</span>
-        <Badge variant="outline">{data?.balance ?? 0}</Badge>
+      <div className="mb-8 p-4 rounded-xl bg-gradient-to-br from-primary/10 to-blue-600/10 border border-primary/20">
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-xs font-semibold text-primary">AI Credits</span>
+          <Badge className="bg-primary hover:bg-primary shadow-sm">{data?.data?.balance ?? 0}</Badge>
+        </div>
+        <div className="w-full bg-muted rounded-full h-1.5 mt-2">
+          <div
+            className="bg-primary h-1.5 rounded-full transition-all duration-500"
+            style={{ width: `${Math.min(((data?.data?.balance ?? 0) / 100) * 100, 100)}%` }}
+          />
+        </div>
       </div>
 
-      <nav className="space-y-1">
+      <nav className="space-y-2 flex-1">
         {navItems.map((item) => {
-          const active = pathname.startsWith(item.href)
+          const active = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href))
           return (
             <Link
               key={item.href}
               href={item.href}
               className={cn(
-                'flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors',
-                active ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'
+                'group flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all duration-200',
+                active
+                  ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20 scale-[1.02]'
+                  : 'hover:bg-muted text-muted-foreground hover:text-foreground'
               )}
             >
-              <item.icon className="h-4 w-4" />
+              <item.icon className={cn("h-5 w-5", active ? "text-primary-foreground" : "text-muted-foreground group-hover:text-primary transition-colors")} />
               {item.label}
             </Link>
           )
         })}
       </nav>
+
+      <div className="mt-auto px-3 py-4 border-t border-border/50">
+        <div className="flex items-center gap-3">
+          <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+          <span className="text-xs text-muted-foreground font-medium">System Online</span>
+        </div>
+      </div>
     </aside>
   )
 }

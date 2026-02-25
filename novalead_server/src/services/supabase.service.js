@@ -1,15 +1,54 @@
 const { supabase } = require('../config/db');
 const { AppError } = require('../utils/apiError');
+const { getEnv } = require('../config/env');
+
+const env = getEnv();
 
 async function createUser(email, passwordHash) {
+  // Strategy 1: Try RPC (Bypasses Schema Cache issues)
+  try {
+    const { data: rpcData, error: rpcError } = await supabase.rpc('register_user', {
+      user_email: email,
+      user_password_hash: passwordHash,
+      initial_credits: env.INITIAL_CREDITS
+    });
+
+    if (rpcError) {
+      console.log(`[Debug] RPC register_user failed. Code: ${rpcError.code}, Message: ${rpcError.message}`);
+      // PGRST202 means function not found
+      if (rpcError.code !== 'PGRST202' && rpcError.code !== '42883') {
+        throw new AppError(`Registration failed: ${rpcError.message}`, 500);
+      }
+      console.log('[Info] RPC function not found in Supabase. Falling back to traditional insert...');
+    } else {
+      if (rpcData && rpcData.error) {
+        throw new Error(rpcData.error);
+      }
+      console.log('[Success] User created via RPC');
+      return rpcData;
+    }
+  } catch (err) {
+    if (err.statusCode) throw err;
+    console.warn('[Warning] RPC Strategy failed:', err.message);
+  }
+
+  // Strategy 2: Traditional insert (Standard flow)
   const { data, error } = await supabase
     .from('users')
-    .insert({ email, password_hash: passwordHash })
+    .insert({
+      email,
+      password_hash: passwordHash,
+      credits: env.INITIAL_CREDITS
+    })
     .select('id, email, credits, created_at')
     .single();
 
   if (error) {
-    throw new AppError('Failed to create user', 500);
+    console.error('Supabase error:', error);
+    if (error.code === 'PGRST205') {
+      throw new AppError('Database is currently out of sync. Please follow the instructions to refresh the Supabase schema cache.', 500);
+    }
+    throw new AppError(`Failed to create user: ${error.message}`, 500);
   }
 
   return data;
@@ -184,3 +223,4 @@ module.exports = {
   deleteSearch,
   getCreditBalance
 };
+

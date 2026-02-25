@@ -20,7 +20,7 @@ export function useSearch() {
       return data
     },
     onSuccess: (data) => {
-      toast.success(`Found ${data.leads.length} leads`)
+      toast.success(`Found ${data.data.leads.length} leads`)
       queryClient.invalidateQueries({ queryKey: ['credits'] })
       queryClient.invalidateQueries({ queryKey: ['searches'] })
     },

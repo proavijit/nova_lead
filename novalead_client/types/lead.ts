@@ -13,10 +13,12 @@ export interface Lead {
 
 export interface SearchResponse {
   success: boolean
-  search_id: string
-  credits_remaining: number
-  total_results: number
-  page: number
-  leads: Lead[]
-  filters?: Record<string, string | number | boolean | null>
+  data: {
+    search_id: string
+    credits_remaining: number
+    total_results: number
+    page: number
+    leads: Lead[]
+    filters?: Record<string, any>
+  }
 }

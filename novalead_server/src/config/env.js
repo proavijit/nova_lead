@@ -19,7 +19,8 @@ const envSchema = Joi.object({
   EXPLORIUM_API_KEY: Joi.string().required(),
   EXPLORIUM_BASE_URL: Joi.string().uri().required(),
 
-  CREDIT_COST_PER_SEARCH: Joi.number().integer().min(1).default(1)
+  CREDIT_COST_PER_SEARCH: Joi.number().integer().min(1).default(1),
+  INITIAL_CREDITS: Joi.number().integer().min(0).default(10)
 }).unknown(true);
 
 function getEnv() {
@@ -36,7 +37,8 @@ function getEnv() {
     OPENROUTER_MODEL,
     EXPLORIUM_API_KEY,
     EXPLORIUM_BASE_URL,
-    CREDIT_COST_PER_SEARCH
+    CREDIT_COST_PER_SEARCH,
+    INITIAL_CREDITS
   } = process.env;
 
   const { value, error } = envSchema.validate(
@@ -51,7 +53,8 @@ function getEnv() {
       OPENROUTER_MODEL,
       EXPLORIUM_API_KEY,
       EXPLORIUM_BASE_URL,
-      CREDIT_COST_PER_SEARCH
+      CREDIT_COST_PER_SEARCH,
+      INITIAL_CREDITS
     },
     {
       abortEarly: false,

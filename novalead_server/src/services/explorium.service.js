@@ -6,7 +6,7 @@ async function searchProspects(filtersPayload) {
     const response = await explorium.post('/v1/prospects', filtersPayload);
 
     return {
-      data: response.data?.results || [],
+      data: response.data?.data || [],
       total_results: response.data?.total_results || 0
     };
   } catch (err) {

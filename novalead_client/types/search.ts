@@ -10,11 +10,18 @@ export interface SearchHistoryItem {
 
 export interface SearchHistoryResponse {
   success: boolean
-  searches: SearchHistoryItem[]
+  data: {
+    items: SearchHistoryItem[]
+    total: number
+    page: number
+    limit: number
+  }
 }
 
 export interface SearchDetailResponse {
   success: boolean
-  search: SearchHistoryItem
-  leads: Lead[]
+  data: {
+    search: SearchHistoryItem
+    leads: Lead[]
+  }
 }

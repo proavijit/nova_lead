@@ -4,12 +4,13 @@ import { useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 
-import { api } from '@/lib/api'
 import { useAuthStore } from '@/store/authStore'
 
 interface CreditsBalanceResponse {
   success: boolean
-  balance: number
+  data: {
+    balance: number
+  }
 }
 
 export interface CreditTransaction {
@@ -22,52 +23,31 @@ export interface CreditTransaction {
 
 interface CreditHistoryResponse {
   success: boolean
-  transactions: CreditTransaction[]
+  data: CreditTransaction[]
 }
 
 export function useCredits() {
+  const credits = useAuthStore((state) => state.credits)
   const setCredits = useAuthStore((state) => state.setCredits)
 
-  const query = useQuery({
-    queryKey: ['credits'],
-    queryFn: async () => {
-      const { data } = await api.get<CreditsBalanceResponse>('/credits/balance')
-      return data
-    },
-    refetchInterval: 30_000,
-    retry: 1
-  })
-
-  useEffect(() => {
-    if (query.data?.balance !== undefined) {
-      setCredits(query.data.balance)
-    }
-  }, [query.data?.balance, setCredits])
-
-  useEffect(() => {
-    if (query.isError) {
-      toast.error('Failed to load credits')
-    }
-  }, [query.isError])
-
-  return query
+  return {
+    data: {
+      success: true,
+      data: { balance: credits }
+    } as CreditsBalanceResponse,
+    isLoading: false,
+    isError: false,
+    credits,
+    setCredits
+  }
 }
 
 export function useCreditHistory() {
-  const query = useQuery({
-    queryKey: ['credit-history'],
-    queryFn: async () => {
-      const { data } = await api.get<CreditHistoryResponse>('/credits/history')
-      return data.transactions
-    },
-    retry: 1
-  })
-
-  useEffect(() => {
-    if (query.isError) {
-      toast.error('Failed to load credit history')
-    }
-  }, [query.isError])
-
-  return query
+  const transactions: CreditTransaction[] = []
+  
+  return {
+    data: transactions,
+    isLoading: false,
+    isError: false
+  }
 }
