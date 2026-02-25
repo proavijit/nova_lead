@@ -5,6 +5,7 @@ const env = getEnv();
 
 const openrouter = axios.create({
   baseURL: 'https://openrouter.ai/api/v1',
+  timeout: env.OPENROUTER_TIMEOUT_MS,
   headers: {
     Authorization: `Bearer ${env.OPENROUTER_API_KEY}`,
     'Content-Type': 'application/json',

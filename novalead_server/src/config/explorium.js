@@ -5,6 +5,7 @@ const env = getEnv();
 
 const explorium = axios.create({
   baseURL: env.EXPLORIUM_BASE_URL,
+  timeout: env.EXPLORIUM_TIMEOUT_MS,
   headers: {
     'Content-Type': 'application/json',
     accept: 'application/json',

@@ -33,16 +33,38 @@ Output ONLY a raw JSON object like:
 No markdown, no explanation, only valid JSON.
 `;
 
+const RETRYABLE_ERR_CODES = new Set(['ECONNABORTED', 'ECONNRESET', 'ETIMEDOUT', 'ENOTFOUND', 'EAI_AGAIN']);
+
+function shouldRetry(err) {
+  const status = err?.response?.status;
+  return RETRYABLE_ERR_CODES.has(err?.code) || status === 429 || (status >= 500 && status <= 599);
+}
+
+async function requestWithRetry(requestFn, retries = 1) {
+  let lastErr;
+  for (let attempt = 0; attempt <= retries; attempt += 1) {
+    try {
+      return await requestFn();
+    } catch (err) {
+      lastErr = err;
+      if (attempt === retries || !shouldRetry(err)) break;
+    }
+  }
+  throw lastErr;
+}
+
 async function parseNLToFilters(prompt) {
   try {
-    const response = await openrouter.post('/chat/completions', {
-      model: env.OPENROUTER_MODEL,
-      messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user', content: prompt }
-      ],
-      temperature: 0.1
-    });
+    const response = await requestWithRetry(() =>
+      openrouter.post('/chat/completions', {
+        model: env.OPENROUTER_MODEL,
+        messages: [
+          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'user', content: prompt }
+        ],
+        temperature: 0.1
+      })
+    );
 
     const raw = (response.data.choices[0].message.content || '').trim();
 
@@ -60,7 +82,9 @@ async function parseNLToFilters(prompt) {
     if (err instanceof AppError) {
       throw err;
     }
-    throw new AppError('Failed to parse filters from AI', 502);
+    const status = err?.response?.status;
+    const code = err?.code;
+    throw new AppError(`Failed to parse filters from AI${status ? ` (status ${status})` : ''}${code ? ` [${code}]` : ''}`, 502);
   }
 }
 
