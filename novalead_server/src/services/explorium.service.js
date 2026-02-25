@@ -32,7 +32,16 @@ async function searchProspects(filtersPayload) {
   } catch (err) {
     const status = err?.response?.status;
     const code = err?.code;
-    throw new AppError(`Failed to fetch prospects from Explorium${status ? ` (status ${status})` : ''}${code ? ` [${code}]` : ''}`, 502);
+    const providerMessage =
+      err?.response?.data?.message ||
+      err?.response?.data?.error ||
+      err?.response?.data?.detail ||
+      null;
+    const suffix = providerMessage ? `: ${String(providerMessage).slice(0, 200)}` : '';
+    throw new AppError(
+      `Failed to fetch prospects from Explorium${status ? ` (status ${status})` : ''}${code ? ` [${code}]` : ''}${suffix}`,
+      502
+    );
   }
 }
 

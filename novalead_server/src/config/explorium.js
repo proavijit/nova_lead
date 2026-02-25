@@ -9,7 +9,9 @@ const explorium = axios.create({
   headers: {
     'Content-Type': 'application/json',
     accept: 'application/json',
-    api_key: env.EXPLORIUM_API_KEY
+    api_key: env.EXPLORIUM_API_KEY,
+    'x-api-key': env.EXPLORIUM_API_KEY,
+    Authorization: `Bearer ${env.EXPLORIUM_API_KEY}`
   }
 });
 
