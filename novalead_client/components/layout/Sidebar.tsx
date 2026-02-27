@@ -1,74 +1,90 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
-import { Clock3, Coins, Search } from 'lucide-react'
+import { usePathname, useRouter } from 'next/navigation'
+import { BadgeDollarSign, Clock3, LayoutDashboard, LogOut, Search, Settings, Zap } from 'lucide-react'
 
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
-import { Separator } from '@/components/ui/separator'
+import { Button } from '@/components/ui/button'
 import { useCredits } from '@/hooks/useCredits'
 import { cn } from '@/lib/utils'
+import { useAuthStore } from '@/store/authStore'
 
 const navItems = [
-  { href: '/search', label: 'Search', icon: Search },
-  { href: '/history', label: 'History', icon: Clock3 },
-  { href: '/credits', label: 'Credits', icon: Coins }
+  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/dashboard/search', label: 'New Search', icon: Search },
+  { href: '/dashboard/history', label: 'Search History', icon: Clock3 },
+  { href: '/dashboard/credits', label: 'Credits', icon: BadgeDollarSign },
+  { href: '/dashboard/settings', label: 'Settings', icon: Settings }
 ]
 
-export function Sidebar() {
+interface SidebarProps {
+  onNavigate?: () => void
+}
+
+export function Sidebar({ onNavigate }: SidebarProps) {
   const pathname = usePathname()
+  const router = useRouter()
   const { data } = useCredits()
+  const user = useAuthStore((state) => state.user)
+  const clearAuth = useAuthStore((state) => state.clearAuth)
+
+  const initials = (user?.email || 'NL').slice(0, 2).toUpperCase()
+
+  const logout = () => {
+    localStorage.removeItem('nova_token')
+    clearAuth()
+    router.replace('/login')
+  }
 
   return (
-    <aside className="sticky top-0 flex h-screen w-full flex-col border-r bg-card/50 backdrop-blur-xl px-4 py-8 md:w-72">
-      <div className="px-3 mb-8">
-        <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-blue-600 bg-clip-text text-transparent">
-          NovaLead
-        </h1>
-        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mt-1">
-          Revenue Intelligence
-        </p>
-      </div>
-
-      <div className="mb-8 p-4 rounded-xl bg-gradient-to-br from-primary/10 to-blue-600/10 border border-primary/20">
-        <div className="flex items-center justify-between mb-1">
-          <span className="text-xs font-semibold text-primary">AI Credits</span>
-          <Badge className="bg-primary hover:bg-primary shadow-sm">{data?.data?.balance ?? 0}</Badge>
+    <aside className="flex h-full w-72 flex-col border-r border-slate-200 bg-white p-4">
+      <Link href="/" className="mb-8 flex items-center gap-2 px-2" onClick={onNavigate}>
+        <Zap className="h-6 w-6 text-blue-400" />
+        <div>
+          <p className="text-lg font-semibold text-slate-900">NovaLead</p>
+          <p className="text-xs text-slate-500">AI Prospecting CRM</p>
         </div>
-        <div className="w-full bg-muted rounded-full h-1.5 mt-2">
-          <div
-            className="bg-primary h-1.5 rounded-full transition-all duration-500"
-            style={{ width: `${Math.min(((data?.data?.balance ?? 0) / 100) * 100, 100)}%` }}
-          />
-        </div>
-      </div>
+      </Link>
 
-      <nav className="space-y-2 flex-1">
+      <nav className="space-y-1">
         {navItems.map((item) => {
-          const active = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href))
+          const active = pathname === item.href
           return (
             <Link
               key={item.href}
               href={item.href}
+              onClick={onNavigate}
               className={cn(
-                'group flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all duration-200',
-                active
-                  ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20 scale-[1.02]'
-                  : 'hover:bg-muted text-muted-foreground hover:text-foreground'
+                'flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition',
+                active ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
               )}
             >
-              <item.icon className={cn("h-5 w-5", active ? "text-primary-foreground" : "text-muted-foreground group-hover:text-primary transition-colors")} />
+              <item.icon className="h-4 w-4" />
               {item.label}
             </Link>
           )
         })}
       </nav>
 
-      <div className="mt-auto px-3 py-4 border-t border-border/50">
-        <div className="flex items-center gap-3">
-          <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-          <span className="text-xs text-muted-foreground font-medium">System Online</span>
+      <div className="mt-auto space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-slate-500">Credits</span>
+          <Badge className="bg-blue-500 text-white">{data?.data?.balance ?? 0}</Badge>
         </div>
+        <div className="flex items-center gap-3">
+          <Avatar className="h-8 w-8">
+            <AvatarFallback>{initials}</AvatarFallback>
+          </Avatar>
+          <div className="min-w-0">
+            <p className="truncate text-sm text-slate-700">{user?.email || 'user@novalead.app'}</p>
+          </div>
+        </div>
+        <Button variant="outline" className="w-full border-slate-300 bg-white text-slate-700" onClick={logout}>
+          <LogOut className="mr-2 h-4 w-4" />
+          Logout
+        </Button>
       </div>
     </aside>
   )

@@ -3,6 +3,7 @@ const authRoutes = require('./auth.routes');
 const prospectRoutes = require('./prospect.routes');
 const searchRoutes = require('./search.routes');
 const creditRoutes = require('./credit.routes');
+const authMiddleware = require('../middleware/auth.middleware');
 
 const router = express.Router();
 
@@ -11,8 +12,8 @@ router.get('/health', (req, res) => {
 });
 
 router.use('/auth', authRoutes);
-router.use('/prospects', prospectRoutes);
-router.use('/searches', searchRoutes);
-router.use('/credits', creditRoutes);
+router.use('/prospects', authMiddleware, prospectRoutes);
+router.use('/searches', authMiddleware, searchRoutes);
+router.use('/credits', authMiddleware, creditRoutes);
 
 module.exports = router;

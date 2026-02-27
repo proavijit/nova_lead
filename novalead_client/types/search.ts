@@ -4,8 +4,9 @@ export interface SearchHistoryItem {
   id: string
   prompt: string
   created_at: string
-  result_count: number
-  credits_used: number
+  result_count?: number
+  total_results?: number
+  credits_used?: number
 }
 
 export interface SearchHistoryResponse {

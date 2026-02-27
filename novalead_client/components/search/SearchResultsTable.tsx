@@ -37,10 +37,10 @@ export function SearchResultsTable({ leads, isLoading = false }: SearchResultsTa
   }
 
   return (
-    <div className="rounded-2xl border border-border/50 bg-card/50 backdrop-blur-md shadow-xl shadow-black/5 overflow-hidden">
+    <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
       <Table>
-        <TableHeader className="bg-muted/30">
-          <TableRow className="hover:bg-transparent border-border/50">
+        <TableHeader className="bg-slate-50">
+          <TableRow className="border-slate-200 hover:bg-transparent">
             <TableHead className="py-4 font-bold text-foreground">Name</TableHead>
             <TableHead className="py-4 font-bold text-foreground">Title</TableHead>
             <TableHead className="py-4 font-bold text-foreground text-center">LinkedIn</TableHead>
@@ -52,7 +52,7 @@ export function SearchResultsTable({ leads, isLoading = false }: SearchResultsTa
         <TableBody>
           {isLoading
             ? Array.from({ length: 5 }).map((_, index) => (
-              <TableRow key={`skeleton-${index}`} className="border-border/50">
+              <TableRow key={`skeleton-${index}`} className="border-slate-200">
                 <TableCell className="py-5"><Skeleton className="h-5 w-24 rounded-lg" /></TableCell>
                 <TableCell className="py-5"><Skeleton className="h-5 w-40 rounded-lg" /></TableCell>
                 <TableCell className="py-5"><div className="flex justify-center"><Skeleton className="h-5 w-16 rounded-lg" /></div></TableCell>
@@ -64,7 +64,7 @@ export function SearchResultsTable({ leads, isLoading = false }: SearchResultsTa
             : leads.map((lead, index) => (
               <TableRow
                 key={`${lead.linkedin_url ?? 'lead'}-${index}`}
-                className="group hover:bg-primary/5 transition-colors border-border/50"
+                className="group border-slate-200 transition-colors hover:bg-blue-50/40"
               >
                 <TableCell className="py-5 font-semibold text-foreground/90">{lead.name ?? '-'}</TableCell>
                 <TableCell className="py-5 text-muted-foreground font-medium">{lead.title ?? '-'}</TableCell>

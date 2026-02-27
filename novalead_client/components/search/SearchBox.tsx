@@ -36,8 +36,7 @@ export function SearchBox({ isPending, onSearch }: SearchBoxProps) {
   }
 
   return (
-    <Card className="w-full border-none shadow-2xl shadow-primary/5 bg-white/50 backdrop-blur-md overflow-hidden ring-1 ring-primary/10">
-      <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary via-blue-400 to-primary/50" />
+    <Card className="w-full overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
       <CardHeader className="pb-4">
         <CardTitle className="flex flex-wrap items-center justify-between gap-4 text-2xl font-bold tracking-tight">
           <span className="flex items-center gap-2">
@@ -60,10 +59,9 @@ export function SearchBox({ isPending, onSearch }: SearchBoxProps) {
                 <FormItem>
                   <FormControl>
                     <div className="relative group">
-                      <div className="absolute -inset-0.5 bg-gradient-to-r from-primary to-blue-500 rounded-lg blur opacity-10 group-focus-within:opacity-25 transition duration-500" />
                       <Textarea
                         rows={4}
-                        className="relative resize-none border-border/50 bg-background/50 focus:bg-background transition-all text-lg placeholder:text-muted-foreground/60 leading-relaxed rounded-lg"
+                        className="relative resize-none border-slate-300 bg-white text-base leading-relaxed placeholder:text-slate-400 focus-visible:ring-1 focus-visible:ring-blue-500"
                         placeholder='Describe your ideal target... e.g. "Find 10 Founders of Series A startups in London focused on AI or CleanTech"'
                         {...field}
                       />
@@ -83,7 +81,7 @@ export function SearchBox({ isPending, onSearch }: SearchBoxProps) {
               <Button
                 type="submit"
                 disabled={isPending}
-                className="h-12 px-8 rounded-xl shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-all hover:-translate-y-0.5 active:translate-y-0"
+                className="h-11 rounded-md bg-[#007BFF] px-8 text-white hover:bg-[#0069d9]"
               >
                 {isPending ? (
                   <span className="flex items-center gap-2">

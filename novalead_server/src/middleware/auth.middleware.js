@@ -28,7 +28,26 @@ module.exports = async function authMiddleware(req, res, next) {
       .single();
 
     if (error || !data) {
-      return next(new AppError('User not found', 401));
+      const isUsersTableMissing =
+        typeof error?.message === 'string' &&
+        (error.message.includes("Could not find the table 'public.users' in the schema cache") ||
+          error.message.toLowerCase().includes('public.users'));
+
+      if (!isUsersTableMissing) {
+        return next(new AppError('User not found', 401));
+      }
+
+      const { data: authUserData, error: authUserError } = await supabase.auth.admin.getUserById(decoded.id);
+      if (authUserError || !authUserData?.user?.id) {
+        return next(new AppError('User not found', 401));
+      }
+
+      req.user = {
+        id: authUserData.user.id,
+        email: authUserData.user.email,
+        credits: env.INITIAL_CREDITS
+      };
+      return next();
     }
 
     req.user = {

@@ -77,6 +77,17 @@ function getEnv() {
     throw new Error(`Config validation error: ${error.message}`);
   }
 
+  if (
+    typeof value.SUPABASE_SERVICE_ROLE_KEY === 'string' &&
+    (value.SUPABASE_SERVICE_ROLE_KEY.startsWith('sb_publishable_') ||
+      value.SUPABASE_SERVICE_ROLE_KEY.startsWith('sb_anon_') ||
+      value.SUPABASE_SERVICE_ROLE_KEY.startsWith('sb_publishable'))
+  ) {
+    console.warn(
+      '[Config warning] SUPABASE_SERVICE_ROLE_KEY looks like a publishable/anon key. Server can start, but auth.admin endpoints (register via auth.users) will fail until you set the real service_role key.'
+    );
+  }
+
   cachedEnv = value;
   return cachedEnv;
 }

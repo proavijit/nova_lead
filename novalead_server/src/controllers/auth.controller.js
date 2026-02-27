@@ -1,7 +1,7 @@
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { getEnv } = require('../config/env');
-const { createUser, findUserByEmail } = require('../services/supabase.service');
+const { createUser, findUserByEmail, authenticateWithSupabase } = require('../services/supabase.service');
 const { AppError } = require('../utils/apiError');
 
 const env = getEnv();
@@ -22,7 +22,7 @@ exports.register = async (req, res, next) => {
         const salt = await bcrypt.genSalt(10);
         const passwordHash = await bcrypt.hash(password, salt);
 
-        const user = await createUser(email, passwordHash);
+        const user = await createUser(email, passwordHash, password);
 
         const token = jwt.sign({ id: user.id }, env.JWT_SECRET, {
             expiresIn: env.JWT_EXPIRES_IN
@@ -48,22 +48,27 @@ exports.login = async (req, res, next) => {
             throw new AppError('Email and password are required', 400);
         }
 
-        const user = await findUserByEmail(email);
-        if (!user) {
-            throw new AppError('Invalid credentials', 401);
-        }
+        let user = await findUserByEmail(email);
 
-        const isMatch = await bcrypt.compare(password, user.password_hash);
-        if (!isMatch) {
-            throw new AppError('Invalid credentials', 401);
+        if (user?.password_hash) {
+            const isMatch = await bcrypt.compare(password, user.password_hash);
+            if (!isMatch) {
+                throw new AppError('Invalid credentials', 401);
+            }
+        } else {
+            user = await authenticateWithSupabase(email, password);
+            if (!user) {
+                throw new AppError('Invalid credentials', 401);
+            }
         }
 
         const token = jwt.sign({ id: user.id }, env.JWT_SECRET, {
             expiresIn: env.JWT_EXPIRES_IN
         });
 
-        // Don't send password hash
-        delete user.password_hash;
+        if (user.password_hash) {
+            delete user.password_hash;
+        }
 
         res.json({
             success: true,

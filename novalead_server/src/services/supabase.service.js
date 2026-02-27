@@ -3,52 +3,67 @@ const { AppError } = require('../utils/apiError');
 const { getEnv } = require('../config/env');
 
 const env = getEnv();
+const USERS_TABLE_CACHE_ERROR = "Could not find the table 'public.users' in the schema cache";
 
-async function createUser(email, passwordHash) {
-  // Strategy 1: Try RPC (Bypasses Schema Cache issues)
-  try {
-    const { data: rpcData, error: rpcError } = await supabase.rpc('register_user', {
-      user_email: email,
-      user_password_hash: passwordHash,
-      initial_credits: env.INITIAL_CREDITS
-    });
+function isUsersTableCacheError(error) {
+  return (
+    !!error &&
+    typeof error.message === 'string' &&
+    (error.message.includes(USERS_TABLE_CACHE_ERROR) || error.message.toLowerCase().includes('public.users'))
+  );
+}
 
-    if (rpcError) {
-      console.log(`[Debug] RPC register_user failed. Code: ${rpcError.code}, Message: ${rpcError.message}`);
-      // PGRST202 means function not found
-      if (rpcError.code !== 'PGRST202' && rpcError.code !== '42883') {
-        throw new AppError(`Registration failed: ${rpcError.message}`, 500);
-      }
-      console.log('[Info] RPC function not found in Supabase. Falling back to traditional insert...');
-    } else {
-      if (rpcData && rpcData.error) {
-        throw new Error(rpcData.error);
-      }
-      console.log('[Success] User created via RPC');
-      return rpcData;
+async function createUser(email, passwordHash, plainPassword) {
+  let authUserId = null;
+
+  const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+    email,
+    password: plainPassword,
+    email_confirm: true
+  });
+
+  if (authError || !authData?.user?.id) {
+    const message = authError?.message || 'Failed to create auth user';
+    if (message.includes('valid Bearer token')) {
+      throw new AppError(
+        'Registration failed: Supabase service_role key is invalid/missing on server. Update SUPABASE_SERVICE_ROLE_KEY in novalead_server/.env',
+        500
+      );
     }
-  } catch (err) {
-    if (err.statusCode) throw err;
-    console.warn('[Warning] RPC Strategy failed:', err.message);
+    if (message.toLowerCase().includes('already')) {
+      throw new AppError('User already exists', 400);
+    }
+    throw new AppError(`Registration failed: ${message}`, 500);
   }
 
-  // Strategy 2: Traditional insert (Standard flow)
+  authUserId = authData.user.id;
+
   const { data, error } = await supabase
     .from('users')
-    .insert({
-      email,
-      password_hash: passwordHash,
-      credits: env.INITIAL_CREDITS
-    })
+    .upsert(
+      {
+        id: authUserId,
+        email,
+        password_hash: passwordHash,
+        credits: env.INITIAL_CREDITS
+      },
+      { onConflict: 'id' }
+    )
     .select('id, email, credits, created_at')
     .single();
 
   if (error) {
-    console.error('Supabase error:', error);
-    if (error.code === 'PGRST205') {
-      throw new AppError('Database is currently out of sync. Please follow the instructions to refresh the Supabase schema cache.', 500);
+    if (isUsersTableCacheError(error)) {
+      return {
+        id: authUserId,
+        email,
+        credits: env.INITIAL_CREDITS,
+        created_at: new Date().toISOString()
+      };
     }
-    throw new AppError(`Failed to create user: ${error.message}`, 500);
+
+    await supabase.auth.admin.deleteUser(authUserId);
+    throw new AppError(`Failed to create user profile: ${error.message}`, 500);
   }
 
   return data;
@@ -66,6 +81,23 @@ async function findUserByEmail(email) {
   }
 
   return data;
+}
+
+async function authenticateWithSupabase(email, password) {
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email,
+    password
+  });
+
+  if (error || !data?.user?.id) {
+    return null;
+  }
+
+  return {
+    id: data.user.id,
+    email: data.user.email || email,
+    credits: env.INITIAL_CREDITS
+  };
 }
 
 async function getUserById(id) {
@@ -206,6 +238,9 @@ async function getCreditBalance(userId) {
     .single();
 
   if (error) {
+    if (isUsersTableCacheError(error)) {
+      return env.INITIAL_CREDITS;
+    }
     throw new AppError('Failed to fetch credit balance', 500);
   }
 
@@ -215,6 +250,7 @@ async function getCreditBalance(userId) {
 module.exports = {
   createUser,
   findUserByEmail,
+  authenticateWithSupabase,
   getUserById,
   saveSearch,
   saveLeads,
@@ -223,4 +259,3 @@ module.exports = {
   deleteSearch,
   getCreditBalance
 };
-
