@@ -30,7 +30,10 @@ const envSchema = Joi.object({
 
 function getEnv() {
   if (cachedEnv) return cachedEnv;
-  const clean = (value) => (typeof value === 'string' ? value.trim() : value);
+  const clean = (value) => {
+    if (typeof value !== 'string') return value;
+    return value.trim().replace(/\\r\\n|\\n/g, '');
+  };
 
   const {
     PORT,
