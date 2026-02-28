@@ -2,7 +2,8 @@ const prisma = require('./src/services/prisma.service');
 const supabaseService = require('./src/services/supabase.service');
 
 async function verify() {
-    console.log('--- Prisma Migration Verification ---');
+    process.env.DATABASE_URL = 'postgresql://postgres.xsksfavlzheeygcbqutt:kth4u3dBqIv77ELZ@3.111.105.85:6543/postgres?pgbouncer=true&connection_limit=1';
+    console.log('--- Prisma Migration Verification (IP Based Mumbai) ---');
 
     try {
         // 1. Test connection

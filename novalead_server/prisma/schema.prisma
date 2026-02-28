@@ -6,12 +6,13 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model User {
-  id            String    @id @default(uuid()) @db.Uuid
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   email         String    @unique
   credits       Int?      @default(10)
   password_hash String?
@@ -21,6 +22,7 @@ model User {
   Profile       Profile?
   Searches      Search[]
   Leads         Lead[]
+  Transactions  CreditTransaction[]
 
   @@map("users")
 }
@@ -42,8 +44,21 @@ model Credit {
   @@map("credits")
 }
 
+model CreditTransaction {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id           String   @db.Uuid
+  user              User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  amount            Int
+  reason            String
+  search_id         String?  @db.Uuid
+  created_at        DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([user_id])
+  @@map("credit_transactions")
+}
+
 model Search {
-  id                String   @id @default(uuid()) @db.Uuid
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   user_id           String   @db.Uuid
   user              User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
   prompt            String?
@@ -64,7 +79,7 @@ model Search {
 }
 
 model Lead {
-  id                   String   @id @default(uuid()) @db.Uuid
+  id                   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   search_id            String   @db.Uuid
   search               Search   @relation(fields: [search_id], references: [id], onDelete: Cascade)
   user_id              String?  @db.Uuid
@@ -85,7 +100,7 @@ model Lead {
 }
 
 model GlobalSearchCache {
-  id                String   @id @default(uuid()) @db.Uuid
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   filter_hash       String   @unique
   query             String?  // Legacy column
   canonical_filters Json?
@@ -102,13 +117,16 @@ model GlobalSearchCache {
 
   Leads             GlobalCachedLead[]
 
+  @@index([filter_hash])
+  @@index([created_at])
   @@map("global_search_cache")
 }
 
 model GlobalCachedLead {
-  id                   String   @id @default(uuid()) @db.Uuid
+  id                   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   cache_id             String   @db.Uuid
   cache                GlobalSearchCache @relation(fields: [cache_id], references: [id], onDelete: Cascade)
+  lead_rank            Int?     @default(0)
   name                 String?
   title                String?
   linkedin_url         String?

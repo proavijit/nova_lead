@@ -5,66 +5,48 @@ const { getEnv } = require('../config/env');
 
 const env = getEnv();
 
-/**
- * User Operations
- */
+async function createUser(email, passwordHash, plainPassword) {
+  let authUserId = null;
 
-async function createUser(email, passwordHash) {
-  let authUserId;
   const { data: authData, error: authError } = await supabase.auth.admin.createUser({
     email,
-    password: Math.random().toString(36), // Dummy password for Supabase Auth, we store hash in users table
+    password: plainPassword,
     email_confirm: true
   });
 
-  if (authError) {
-    throw new AppError(`Supabase Auth failed: ${authError.message}`, 400);
+  if (authError || !authData?.user?.id) {
+    const message = authError?.message || 'Failed to create auth user';
+    if (message.includes('valid Bearer token')) {
+      throw new AppError(
+        'Registration failed: Supabase service_role key is invalid/missing on server. Update SUPABASE_SERVICE_ROLE_KEY in novalead_server/.env',
+        500
+      );
+    }
+    if (message.toLowerCase().includes('already')) {
+      throw new AppError('User already exists', 400);
+    }
+    throw new AppError(`Registration failed: ${message}`, 500);
   }
 
   authUserId = authData.user.id;
 
   try {
-    const newUser = await prisma.$transaction(async (tx) => {
-      const user = await tx.user.upsert({
-        where: { id: authUserId },
-        update: {
-          email,
-          password_hash: passwordHash
-        },
-        create: {
-          id: authUserId,
-          email,
-          password_hash: passwordHash,
-          credits: env.INITIAL_CREDITS
-        }
-      });
-
-      await tx.credit.upsert({
-        where: { user_id: authUserId },
-        update: {},
-        create: {
-          user_id: authUserId,
-          balance: env.INITIAL_CREDITS
-        }
-      });
-
-      await tx.profile.upsert({
-        where: { user_id: authUserId },
-        update: {},
-        create: {
-          user_id: authUserId
-        }
-      });
-
-      return user;
+    const user = await prisma.user.upsert({
+      where: { id: authUserId },
+      update: {
+        email,
+        password_hash: passwordHash,
+        credits: env.INITIAL_CREDITS
+      },
+      create: {
+        id: authUserId,
+        email,
+        password_hash: passwordHash,
+        credits: env.INITIAL_CREDITS
+      }
     });
-
-    return {
-      ...newUser,
-      credits: env.INITIAL_CREDITS
-    };
+    return user;
   } catch (error) {
-    console.error('[DB] Prisma user creation failed:', error.message);
     await supabase.auth.admin.deleteUser(authUserId);
     throw new AppError(`Failed to create user profile: ${error.message}`, 500);
   }
@@ -74,67 +56,74 @@ async function findUserByEmail(email) {
   try {
     const user = await prisma.user.findUnique({
       where: { email },
-      include: { Credit: true }
+      select: {
+        id: true,
+        email: true,
+        password_hash: true,
+        credits: true
+      }
     });
-
-    if (!user) return null;
-
-    return {
-      ...user,
-      credits: user.Credit?.balance ?? user.credits ?? env.INITIAL_CREDITS
-    };
+    return user;
   } catch (error) {
-    console.error('[DB] findUserByEmail error:', error.message);
     return null;
   }
+}
+
+async function authenticateWithSupabase(email, password) {
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email,
+    password
+  });
+
+  if (error || !data?.user?.id) {
+    return null;
+  }
+
+  return {
+    id: data.user.id,
+    email: data.user.email || email,
+    credits: env.INITIAL_CREDITS
+  };
 }
 
 async function getUserById(id) {
   try {
     const user = await prisma.user.findUnique({
       where: { id },
-      include: { Credit: true }
+      select: {
+        id: true,
+        email: true,
+        credits: true,
+        created_at: true
+      }
     });
-
     if (!user) {
       throw new AppError('User not found', 404);
     }
-
-    return {
-      ...user,
-      credits: user.Credit?.balance ?? user.credits ?? env.INITIAL_CREDITS
-    };
+    return user;
   } catch (error) {
-    if (error instanceof AppError) throw error;
-    console.error('[DB] getUserById error:', error.message);
-    throw new AppError('Failed to fetch user', 500);
+    throw new AppError('User not found', 404);
   }
 }
-
-/**
- * Search & Lead Operations
- */
 
 async function saveSearch(userId, prompt, filters, totalResults, metadata = {}) {
   try {
     const search = await prisma.search.create({
       data: {
         user_id: userId,
-        prompt: prompt,
-        filters: filters || {},
+        prompt: prompt || null,
+        filters: filters || null,
         total_results: totalResults || 0,
-        credits_charged: metadata.credits_charged || 0,
-        cache_hit: metadata.cache_hit || false,
-        cache_strategy: metadata.cache_strategy || 'miss',
         cache_id: metadata.cache_id || null,
-        canonical_filters: metadata.canonical_filters || {},
-        lead_snapshot: metadata.leads || []
+        cache_hit: Boolean(metadata.cache_hit),
+        cache_strategy: metadata.cache_strategy || null,
+        credits_charged: Number.isInteger(metadata.credits_charged) ? metadata.credits_charged : 0,
+        canonical_filters: metadata.canonical_filters || null,
+        lead_snapshot: metadata.leads ? metadata.leads : null
       }
     });
-
     return search;
   } catch (error) {
-    console.error('[DB] saveSearch error:', error.message);
     throw new AppError(`Failed to save search: ${error.message}`, 500);
   }
 }
@@ -155,8 +144,7 @@ async function saveLeads(userId, searchId, normalizedLeads, rawLeads) {
       company_name: lead.company?.name ?? null,
       company_linkedin_url: lead.company?.linkedin_url ?? null,
       company_website: lead.company?.website ?? null,
-      raw_data: raw,
-      userid: userId // Legacy naming compatibility
+      raw_data: raw
     };
   });
 
@@ -166,20 +154,24 @@ async function saveLeads(userId, searchId, normalizedLeads, rawLeads) {
     await prisma.lead.createMany({
       data: records
     });
-    return records;
+
+    const createdLeads = await prisma.lead.findMany({
+      where: { search_id: searchId },
+      orderBy: { created_at: 'asc' }
+    });
+    return createdLeads;
   } catch (error) {
-    console.error('[DB] saveLeads error:', error.message);
-    return [];
+    throw new AppError(`Failed to save leads: ${error.message}`, 500);
   }
 }
 
 async function listSearches(userId, page = 1, limit = 10) {
-  const p = Math.max(1, parseInt(page));
-  const l = Math.max(1, parseInt(limit));
+  const p = Number(page) || 1;
+  const l = Number(limit) || 10;
   const skip = (p - 1) * l;
 
   try {
-    const [searches, count] = await Promise.all([
+    const [items, total] = await prisma.$transaction([
       prisma.search.findMany({
         where: { user_id: userId },
         orderBy: { created_at: 'desc' },
@@ -191,144 +183,132 @@ async function listSearches(userId, page = 1, limit = 10) {
       })
     ]);
 
-    const mapped = searches.map((item) => ({
+    const mapped = items.map((item) => ({
       ...item,
-      result_count: item.total_results || 0,
-      credits_used: item.credits_charged || 0
+      prompt: item.prompt ?? item.query ?? '',
+      total_results: item.total_results ?? 0,
+      credits_charged: item.credits_charged ?? 0,
+      lead_snapshot: item.lead_snapshot || []
     }));
 
     return {
       items: mapped,
-      total: count,
+      total,
       page: p,
       limit: l
     };
   } catch (error) {
-    console.error('[DB] listSearches error:', error.message);
-    return { items: [], total: 0, page: p, limit: l };
+    throw new AppError(`Failed to list searches: ${error.message}`, 500);
   }
 }
 
 async function getSearchWithLeads(userId, searchId) {
   try {
     const search = await prisma.search.findUnique({
-      where: { id: searchId },
-      include: {
-        Leads: {
-          orderBy: { created_at: 'desc' }
-        }
-      }
+      where: { id: searchId }
     });
 
     if (!search || search.user_id !== userId) {
       throw new AppError('Search not found', 404);
     }
 
-    let leads = search.Leads || [];
+    const leads = await prisma.lead.findMany({
+      where: { search_id: searchId },
+      orderBy: { created_at: 'desc' }
+    });
 
-    if (leads.length === 0 && Array.isArray(search.lead_snapshot)) {
-      leads = search.lead_snapshot.map((s) => ({
-        name: s.name,
-        title: s.title,
-        linkedin_url: s.linkedin_url,
-        company_name: s.company?.name || s.company_name,
-        company_linkedin_url: s.company?.linkedin_url || s.company_linkedin_url,
-        company_website: s.company?.website || s.company_website
-      }));
-    }
-
-    return { ...search, leads };
+    return {
+      search: {
+        ...search,
+        prompt: search.prompt ?? search.query ?? '',
+        total_results: search.total_results ?? 0,
+        credits_charged: search.credits_charged ?? 0,
+        lead_snapshot: search.lead_snapshot || []
+      },
+      leads: leads.length > 0 ? leads.map((lead) => ({
+        ...lead,
+        title: lead.title ?? null,
+        linkedin_url: lead.linkedin_url ?? null,
+        company_name: lead.company_name ?? null,
+        company_linkedin_url: lead.company_linkedin_url ?? null,
+        company_website: lead.company_website ?? null
+      })) : (search.lead_snapshot || [])
+    };
   } catch (error) {
     if (error instanceof AppError) throw error;
-    console.error('[DB] getSearchWithLeads error:', error.message);
-    throw new AppError('Failed to fetch search details', 500);
+    throw new AppError(`Failed to fetch leads: ${error.message}`, 500);
   }
 }
 
 async function deleteSearch(userId, searchId) {
   try {
-    await prisma.search.delete({
-      where: { id: searchId, user_id: userId }
+    await prisma.search.deleteMany({
+      where: {
+        id: searchId,
+        user_id: userId
+      }
     });
   } catch (error) {
-    console.error('[DB] deleteSearch error:', error.message);
-    throw new AppError('Failed to delete search', 500);
+    throw new AppError(`Failed to delete search: ${error.message}`, 500);
   }
 }
 
-/**
- * Credit Operations
- */
-
 async function getCreditBalance(userId) {
   try {
-    const credit = await prisma.credit.findUnique({
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { credits: true }
+    });
+
+    if (user && user.credits !== null) {
+      return user.credits;
+    }
+
+    const creditRec = await prisma.credit.findUnique({
       where: { user_id: userId }
     });
-    return credit?.balance ?? env.INITIAL_CREDITS;
+
+    if (creditRec && creditRec.balance !== null) {
+      return creditRec.balance;
+    }
+
+    return env.INITIAL_CREDITS;
   } catch (error) {
-    console.error('[DB] getCreditBalance error:', error.message);
     return env.INITIAL_CREDITS;
   }
 }
 
-async function updateUserCredits(userId, amount) {
-  try {
-    return await prisma.$transaction(async (tx) => {
-      // Update credits table
-      const updatedCredit = await tx.credit.update({
-        where: { user_id: userId },
-        data: { balance: { increment: amount } }
-      });
-
-      // Sync to users table for legacy compatibility
-      await tx.user.update({
-        where: { id: userId },
-        data: { credits: updatedCredit.balance }
-      });
-
-      return updatedCredit.balance;
-    });
-  } catch (error) {
-    console.error('[DB] updateUserCredits error:', error.message);
-    throw new AppError('Failed to update credits', 500);
-  }
-}
-
-/**
- * Global Cache Operations
- */
-
 async function getReadyGlobalCacheByHash(filterHash) {
   try {
-    const cache = await prisma.globalSearchCache.findUnique({
+    const cache = await prisma.globalSearchCache.findFirst({
       where: {
         filter_hash: filterHash,
         status: 'ready',
-        expires_at: { gt: new Date() }
+        expires_at: {
+          gt: new Date()
+        }
       }
     });
     return cache;
   } catch (error) {
-    console.error('[DB] getReadyGlobalCacheByHash error:', error.message);
-    return null;
+    throw new AppError(`Failed to read global cache: ${error.message}`, 500);
   }
 }
 
 async function getAnyGlobalCacheByHash(filterHash) {
   try {
-    return await prisma.globalSearchCache.findUnique({
+    const cache = await prisma.globalSearchCache.findUnique({
       where: { filter_hash: filterHash }
     });
+    return cache;
   } catch (error) {
-    console.error('[DB] getAnyGlobalCacheByHash error:', error.message);
-    return null;
+    throw new AppError(`Failed to read global cache: ${error.message}`, 500);
   }
 }
 
 async function createOrGetPendingGlobalCache(filterHash, canonicalFilters, expiresAt, provider = 'explorium') {
   try {
-    return await prisma.globalSearchCache.upsert({
+    const cache = await prisma.globalSearchCache.upsert({
       where: { filter_hash: filterHash },
       update: {},
       create: {
@@ -340,15 +320,15 @@ async function createOrGetPendingGlobalCache(filterHash, canonicalFilters, expir
         hit_count: 0
       }
     });
+    return cache;
   } catch (error) {
-    console.error('[DB] createOrGetPendingGlobalCache error:', error.message);
-    return null;
+    throw new AppError(`Failed to create global cache row: ${error.message}`, 500);
   }
 }
 
 async function markGlobalCacheReady(cacheId, totalResults, expiresAt) {
   try {
-    return await prisma.globalSearchCache.update({
+    const cache = await prisma.globalSearchCache.update({
       where: { id: cacheId },
       data: {
         status: 'ready',
@@ -357,9 +337,9 @@ async function markGlobalCacheReady(cacheId, totalResults, expiresAt) {
         error_message: null
       }
     });
+    return cache;
   } catch (error) {
-    console.error('[DB] markGlobalCacheReady error:', error.message);
-    return null;
+    throw new AppError(`Failed to mark cache ready: ${error.message}`, 500);
   }
 }
 
@@ -373,7 +353,7 @@ async function markGlobalCacheFailed(cacheId, errorMessage) {
       }
     });
   } catch (error) {
-    console.error('[DB] markGlobalCacheFailed error:', error.message);
+    throw new AppError(`Failed to mark cache failed: ${error.message}`, 500);
   }
 }
 
@@ -387,48 +367,85 @@ async function touchGlobalCacheHit(cacheId) {
       }
     });
   } catch (error) {
-    console.error('[DB] touchGlobalCacheHit error:', error.message);
+    // Silently ignore
   }
 }
 
-async function saveGlobalCachedLeads(cacheId, leads) {
-  if (!Array.isArray(leads) || leads.length === 0) return;
+async function saveGlobalCachedLeads(cacheId, normalizedLeads, rawLeads) {
+  const safeNormalized = Array.isArray(normalizedLeads) ? normalizedLeads : [];
+  const safeRaw = Array.isArray(rawLeads) ? rawLeads : [];
+  if (!safeNormalized.length) return [];
 
-  const records = leads.map(l => ({
+  const records = safeNormalized.map((lead, index) => ({
     cache_id: cacheId,
-    name: l.name || null,
-    title: l.title || null,
-    linkedin_url: l.linkedin_url || null,
-    company_name: l.company?.name || l.company_name || null,
-    company_linkedin_url: l.company?.linkedin_url || l.company_linkedin_url || null,
-    company_website: l.company?.website || l.company_website || null,
-    raw_data: l
+    lead_rank: index,
+    name: lead.name ?? null,
+    title: lead.title ?? null,
+    linkedin_url: lead.linkedin_url ?? null,
+    company_name: lead.company?.name ?? null,
+    company_linkedin_url: lead.company?.linkedin_url ?? null,
+    company_website: lead.company?.website ?? null,
+    raw_data: safeRaw[index] || null
   }));
 
   try {
     await prisma.globalCachedLead.createMany({
       data: records
     });
+    return records;
   } catch (error) {
-    console.error('[DB] saveGlobalCachedLeads error:', error.message);
+    throw new AppError(`Failed to save global cached leads: ${error.message}`, 500);
   }
 }
 
-async function listGlobalCachedLeads(cacheId) {
+async function getGlobalCachedLeads(cacheId) {
   try {
-    return await prisma.globalCachedLead.findMany({
+    const leads = await prisma.globalCachedLead.findMany({
       where: { cache_id: cacheId },
-      orderBy: { created_at: 'desc' }
+      orderBy: { lead_rank: 'asc' }
     });
+    return leads;
   } catch (error) {
-    console.error('[DB] listGlobalCachedLeads error:', error.message);
-    return [];
+    throw new AppError(`Failed to fetch global cached leads: ${error.message}`, 500);
   }
+}
+
+function cachedLeadToNormalized(lead) {
+  return {
+    name: lead.name ?? null,
+    title: lead.title ?? null,
+    linkedin_url: lead.linkedin_url ?? null,
+    company: {
+      name: lead.company_name ?? null,
+      linkedin_url: lead.company_linkedin_url ?? null,
+      website: lead.company_website ?? null
+    }
+  };
+}
+
+async function cloneCacheLeadsToUserSearch(userId, searchId, cachedLeads) {
+  const leads = Array.isArray(cachedLeads) ? cachedLeads : [];
+  if (!leads.length) return [];
+
+  const normalizedLeads = leads.map((lead) => cachedLeadToNormalized(lead));
+  const rawLeads = leads.map((lead) => lead.raw_data || null);
+
+  return saveLeads(userId, searchId, normalizedLeads, rawLeads);
+}
+
+async function waitForReadyGlobalCache(filterHash, retries = 3, delayMs = 400) {
+  for (let attempt = 0; attempt < retries; attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+    const ready = await getReadyGlobalCacheByHash(filterHash);
+    if (ready) return ready;
+  }
+  return null;
 }
 
 module.exports = {
   createUser,
   findUserByEmail,
+  authenticateWithSupabase,
   getUserById,
   saveSearch,
   saveLeads,
@@ -436,7 +453,6 @@ module.exports = {
   getSearchWithLeads,
   deleteSearch,
   getCreditBalance,
-  updateUserCredits,
   getReadyGlobalCacheByHash,
   getAnyGlobalCacheByHash,
   createOrGetPendingGlobalCache,
@@ -444,5 +460,7 @@ module.exports = {
   markGlobalCacheFailed,
   touchGlobalCacheHit,
   saveGlobalCachedLeads,
-  listGlobalCachedLeads
+  getGlobalCachedLeads,
+  cloneCacheLeadsToUserSearch,
+  waitForReadyGlobalCache
 };
