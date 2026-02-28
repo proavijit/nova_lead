@@ -271,19 +271,15 @@ async function saveSearch(userId, prompt, filters, totalResults, metadata = {}) 
 
     query = supabase.from('searches').insert(basePayload).select('*').single();
     ({ data, error } = await query);
-    if (error) {
-      const isLegacySearchSchema =
-        isMissingColumnError(error, 'prompt') ||
-        isMissingColumnError(error, 'filters') ||
-        isMissingColumnError(error, 'total_results');
 
-      if (isLegacySearchSchema) {
-        const legacyPayload = {
-          user_id: userId,
-          query: prompt
-        };
-        ({ data, error } = await supabase.from('searches').insert(legacyPayload).select('*').single());
-      }
+    if (error) {
+      // Fallback: The user's table has 'query' instead of 'prompt'
+      const legacyPayload = {
+        user_id: userId,
+        query: prompt
+      };
+
+      ({ data, error } = await supabase.from('searches').insert(legacyPayload).select('*').single());
 
       if (error) {
         if (isMissingTableError(error, 'searches')) {
@@ -376,10 +372,11 @@ async function listSearches(userId, page = 1, limit = 10) {
 
   const mapped = (data || []).map((item) => ({
     ...item,
-    prompt: item.prompt ?? item.query ?? '',
-    total_results: item.total_results ?? item.result_count ?? 0,
-    credits_charged: item.credits_charged ?? item.credits_used ?? 0,
-    lead_snapshot: item.lead_snapshot ?? null
+    id: item.id,
+    prompt: item.prompt || item.query || '',
+    result_count: item.total_results || 0,
+    credits_used: item.credits_charged || 0,
+    created_at: item.created_at
   }));
 
   return {

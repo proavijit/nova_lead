@@ -45,26 +45,15 @@ module.exports = async function authMiddleware(req, res, next) {
     }
 
     if (error || !data) {
-      console.log('[AUTH DEBUG] User lookup error:', error?.message);
-      const isUsersTableMissing =
-        typeof error?.message === 'string' &&
-        (error.message.includes("Could not find the table 'public.users' in the schema cache") ||
-          error.message.toLowerCase().includes('public.users'));
+      console.log('[AUTH DEBUG] User lookup error or missing data:', error?.message);
 
-      if (!isUsersTableMissing) {
-        console.log('[AUTH DEBUG] User not found in users table, checking auth...');
-        const { data: authUserData, error: authUserError } = await supabase.auth.admin.getUserById(decoded.id);
-        if (authUserError || !authUserData?.user?.id) {
-          console.log('[AUTH DEBUG] User not found in auth either:', authUserError?.message);
-          return next(new AppError('User not found', 401));
-        }
+      // Fallback: Check Supabase Auth directly
+      console.log('[AUTH DEBUG] Checking Supabase Auth directly as fallback...');
+      const { data: authUserData, error: authUserError } = await supabase.auth.admin.getUserById(decoded.id);
 
-        req.user = {
-          id: authUserData.user.id,
-          email: authUserData.user.email,
-          credits: env.INITIAL_CREDITS
-        };
-        return next();
+      if (authUserError || !authUserData?.user?.id) {
+        console.log('[AUTH DEBUG] User not found in auth either:', authUserError?.message);
+        return next(new AppError('User not found', 401));
       }
 
       req.user = {
