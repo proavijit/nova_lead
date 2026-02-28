@@ -1,5 +1,5 @@
 const Joi = require('joi');
-require('dotenv').config();
+require('dotenv').config({ override: true });
 
 let cachedEnv;
 

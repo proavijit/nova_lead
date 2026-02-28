@@ -37,6 +37,11 @@ async function searchProspects(filtersPayload) {
       err?.response?.data?.error ||
       err?.response?.data?.detail ||
       null;
+
+    if (status === 403) {
+      console.error('[EXPLORIUM 403 DETAILS]:', err?.response?.data || err.message);
+    }
+
     const suffix = providerMessage ? `: ${String(providerMessage).slice(0, 200)}` : '';
     throw new AppError(
       `Failed to fetch prospects from Explorium${status ? ` (status ${status})` : ''}${code ? ` [${code}]` : ''}${suffix}`,
