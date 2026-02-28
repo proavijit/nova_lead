@@ -1,3 +1,5 @@
 .vercel
 
 /src/generated/prisma
+
+.env*.local
