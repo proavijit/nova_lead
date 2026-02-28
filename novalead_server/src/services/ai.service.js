@@ -85,12 +85,24 @@ async function parseNLToFilters(prompt) {
     const status = err?.response?.status;
     const code = err?.code;
 
+    const keyPrefix = env.OPENROUTER_API_KEY
+      ? env.OPENROUTER_API_KEY.slice(0, 10) + '...'
+      : '(not set)';
+
     if (status === 401) {
+      console.error('[AI SERVICE] 401 Unauthorized. OPENROUTER_API_KEY prefix:', keyPrefix);
       throw new AppError(
-        'AI service is unauthorized. Please check your OPENROUTER_API_KEY in the environment variables.',
+        'AI service is unauthorized. The OPENROUTER_API_KEY may be invalid or expired. Check Vercel environment variables.',
         503
       );
     }
+
+    console.error('[AI SERVICE] Request failed:', {
+      status,
+      code,
+      keyPrefix,
+      message: err?.message
+    });
 
     throw new AppError(
       `Failed to parse filters from AI${status ? ` (status ${status})` : ''}${code ? ` [${code}]` : ''}`,
