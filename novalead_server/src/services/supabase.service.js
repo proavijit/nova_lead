@@ -60,77 +60,104 @@ async function createUser(email, passwordHash, plainPassword) {
 
   authUserId = authData.user.id;
 
-  let { data, error } = await supabase
+  // 1. Create entry in users table
+  const userPayload = {
+    id: authUserId,
+    email
+  };
+
+  // Only add password_hash if it exists in schema
+  if (passwordHash) {
+    userPayload.password_hash = passwordHash;
+  }
+
+  let { data: userData, error: userError } = await supabase
     .from('users')
-    .upsert(
-      {
-        id: authUserId,
-        email,
-        password_hash: passwordHash,
-        credits: env.INITIAL_CREDITS
-      },
-      { onConflict: 'id' }
-    )
-    .select('id, email, credits, created_at')
+    .upsert(userPayload, { onConflict: 'id' })
+    .select('*')
     .single();
 
-  if (error) {
-    if (isMissingColumnError(error, 'password_hash') || isMissingColumnError(error, 'credits')) {
-      ({ data, error } = await supabase
+  if (userError) {
+    // If it failed because of password_hash column, try without it
+    if (isMissingColumnError(userError, 'password_hash')) {
+      delete userPayload.password_hash;
+      ({ data: userData, error: userError } = await supabase
         .from('users')
-        .upsert(
-          {
-            id: authUserId,
-            email
-          },
-          { onConflict: 'id' }
-        )
+        .upsert(userPayload, { onConflict: 'id' })
         .select('*')
         .single());
-      
-      if (!error && data) {
-        data.credits = env.INITIAL_CREDITS;
-      }
     }
   }
 
-  if (error) {
-    if (isUsersTableCacheError(error) || isMissingColumnError(error, 'credits') || isMissingColumnError(error, 'password_hash')) {
-      return {
-        id: authUserId,
-        email,
-        credits: env.INITIAL_CREDITS,
-        created_at: new Date().toISOString()
-      };
-    }
-
+  if (userError) {
+    console.error('[DB] Primary user creation failed:', userError.message);
     await supabase.auth.admin.deleteUser(authUserId);
-    throw new AppError(`Failed to create user profile: ${error.message}`, 500);
+    throw new AppError(`Failed to create user profile: ${userError.message}`, 500);
   }
 
-  return data;
+  // 2. Initialize credits in either users or credits table
+  try {
+    const { error: creditsError } = await supabase
+      .from('credits')
+      .upsert({ user_id: authUserId, balance: env.INITIAL_CREDITS }, { onConflict: 'user_id' });
+
+    if (creditsError) {
+      // If credits table doesn't exist, it might be in users table
+      await supabase
+        .from('users')
+        .update({ credits: env.INITIAL_CREDITS })
+        .eq('id', authUserId);
+    }
+  } catch (e) {
+    console.warn('[DB] Credits initialization warning:', e.message);
+  }
+
+  // 3. Initialize profile if table exists
+  try {
+    await supabase
+      .from('profiles')
+      .upsert({ user_id: authUserId }, { onConflict: 'user_id' });
+  } catch (e) {
+    // Ignore if profiles table doesn't exist or has issues
+  }
+
+  return {
+    ...userData,
+    credits: env.INITIAL_CREDITS
+  };
 }
 
 async function findUserByEmail(email) {
+  // Try to find in users table
   const { data, error } = await supabase
     .from('users')
-    .select('id, email, password_hash, credits')
+    .select('*')
     .eq('email', email)
-    .single();
+    .maybeSingle();
 
-  if (error) {
-    if (isMissingColumnError(error, 'credits') || isMissingColumnError(error, 'password_hash')) {
-      const { data: basicData, error: basicError } = await supabase
-        .from('users')
-        .select('id, email')
-        .eq('email', email)
-        .single();
-      
-      if (basicData && !basicError) {
-        return { ...basicData, credits: env.INITIAL_CREDITS, password_hash: null };
-      }
-    }
+  if (error && (isUsersTableCacheError(error) || isMissingTableError(error, 'users'))) {
     return null;
+  }
+
+  if (!data) return null;
+
+  // Add credits from separate table if not in users
+  if (!data.credits) {
+    try {
+      const { data: creditsData } = await supabase
+        .from('credits')
+        .select('balance')
+        .eq('user_id', data.id)
+        .maybeSingle();
+
+      if (creditsData) {
+        data.credits = creditsData.balance;
+      } else {
+        data.credits = env.INITIAL_CREDITS;
+      }
+    } catch (e) {
+      data.credits = env.INITIAL_CREDITS;
+    }
   }
 
   return data;
@@ -156,23 +183,34 @@ async function authenticateWithSupabase(email, password) {
 async function getUserById(id) {
   const { data, error } = await supabase
     .from('users')
-    .select('id, email, credits, created_at')
+    .select('*')
     .eq('id', id)
-    .single();
+    .maybeSingle();
 
-  if (error) {
-    if (isMissingColumnError(error, 'credits')) {
-      const { data: basicData, error: basicError } = await supabase
-        .from('users')
-        .select('id, email, created_at')
-        .eq('id', id)
-        .single();
-      
-      if (basicData && !basicError) {
-        return { ...basicData, credits: env.INITIAL_CREDITS };
-      }
+  if (error || !data) {
+    if (isUsersTableCacheError(error) || isMissingTableError(error, 'users')) {
+      throw new AppError('Database table unavailable', 500);
     }
     throw new AppError('User not found', 404);
+  }
+
+  // Add credits from separate table if not in users
+  if (!data.credits) {
+    try {
+      const { data: creditsData } = await supabase
+        .from('credits')
+        .select('balance')
+        .eq('user_id', data.id)
+        .maybeSingle();
+
+      if (creditsData) {
+        data.credits = creditsData.balance;
+      } else {
+        data.credits = env.INITIAL_CREDITS;
+      }
+    } catch (e) {
+      data.credits = env.INITIAL_CREDITS;
+    }
   }
 
   return data;
@@ -183,16 +221,16 @@ async function saveSearch(userId, prompt, filters, totalResults, metadata = {}) 
 
   const leadSnapshot = leads.length > 0
     ? leads.map((lead) => ({
-        name: lead.name ?? null,
-        title: lead.title ?? null,
-        linkedin_url: lead.linkedin_url ?? null,
-        company: {
-          name: lead.company?.name ?? null,
-          linkedin_url: lead.company?.linkedin_url ?? null,
-          website: lead.company?.website ?? null
-        },
-        raw_data: lead.raw_data ?? null
-      }))
+      name: lead.name ?? null,
+      title: lead.title ?? null,
+      linkedin_url: lead.linkedin_url ?? null,
+      company: {
+        name: lead.company?.name ?? null,
+        linkedin_url: lead.company?.linkedin_url ?? null,
+        website: lead.company?.website ?? null
+      },
+      raw_data: lead.raw_data ?? null
+    }))
     : null;
 
   const basePayload = {
@@ -454,30 +492,33 @@ async function deleteSearch(userId, searchId) {
 }
 
 async function getCreditBalance(userId) {
-  let { data, error } = await supabase
-    .from('users')
-    .select('credits')
-    .eq('id', userId)
-    .single();
+  // 1. Try to get from credits table (new schema)
+  try {
+    const { data, error } = await supabase
+      .from('credits')
+      .select('balance')
+      .eq('user_id', userId)
+      .maybeSingle();
 
-  if (error && isMissingColumnError(error, 'credits')) {
-    ({ data, error } = await supabase.from('credits').select('balance').eq('user_id', userId).single());
-    if (!error) {
+    if (!error && data) {
       return data.balance ?? 0;
     }
-    if (error?.code === 'PGRST116') {
-      return env.INITIAL_CREDITS;
-    }
-  }
+  } catch (e) { }
 
-  if (error) {
-    if (isUsersTableCacheError(error)) {
-      return env.INITIAL_CREDITS;
-    }
-    throw new AppError('Failed to fetch credit balance', 500);
-  }
+  // 2. Try to get from users table (legacy/old schema)
+  try {
+    const { data, error } = await supabase
+      .from('users')
+      .select('credits')
+      .eq('id', userId)
+      .maybeSingle();
 
-  return data.credits ?? 0;
+    if (!error && data) {
+      return data.credits ?? 0;
+    }
+  } catch (e) { }
+
+  return env.INITIAL_CREDITS;
 }
 
 async function getReadyGlobalCacheByHash(filterHash) {
