@@ -84,7 +84,18 @@ async function parseNLToFilters(prompt) {
     }
     const status = err?.response?.status;
     const code = err?.code;
-    throw new AppError(`Failed to parse filters from AI${status ? ` (status ${status})` : ''}${code ? ` [${code}]` : ''}`, 502);
+
+    if (status === 401) {
+      throw new AppError(
+        'AI service is unauthorized. Please check your OPENROUTER_API_KEY in the environment variables.',
+        503
+      );
+    }
+
+    throw new AppError(
+      `Failed to parse filters from AI${status ? ` (status ${status})` : ''}${code ? ` [${code}]` : ''}`,
+      503
+    );
   }
 }
 

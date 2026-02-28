@@ -23,7 +23,7 @@ export function FilterPreview({ filters }: FilterPreviewProps) {
             <Filter className="h-4 w-4 text-primary" />
             Extracted Intelligence Parameters
           </CardTitle>
-          <Button variant="ghost" size="sm" onClick={() => setOpen((v) => !v)}>
+          <Button variant="ghost" size="sm" onClick={() => setOpen((v) => !v)} aria-label="Toggle filters">
             <ChevronDown className={`h-4 w-4 text-primary transition-transform duration-300 ${open ? 'rotate-180' : ''}`} />
           </Button>
         </div>

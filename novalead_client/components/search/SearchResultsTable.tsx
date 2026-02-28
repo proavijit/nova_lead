@@ -26,7 +26,7 @@ function SafeLink({ href, label }: { href: string; label: string }) {
       className="inline-flex items-center gap-1 text-sm text-blue-600 hover:underline"
     >
       {label}
-      <ExternalLink className="h-3 w-3" />
+      <ExternalLink className="h-3 w-3" aria-hidden="true" />
     </a>
   )
 }

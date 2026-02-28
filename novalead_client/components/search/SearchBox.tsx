@@ -44,7 +44,7 @@ export function SearchBox({ isPending, onSearch }: SearchBoxProps) {
             Lead Discovery Engine
           </span>
           <div className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/5 border border-primary/20">
-            <Coins className="h-4 w-4 text-primary" />
+            <Coins className="h-4 w-4 text-primary" aria-hidden="true" />
             <span className="text-sm font-semibold text-primary">{credits?.data?.balance ?? 0} Credits</span>
           </div>
         </CardTitle>
@@ -63,6 +63,7 @@ export function SearchBox({ isPending, onSearch }: SearchBoxProps) {
                         rows={4}
                         className="relative resize-none border-slate-300 bg-white text-base leading-relaxed placeholder:text-slate-400 focus-visible:ring-1 focus-visible:ring-blue-500"
                         placeholder='Describe your ideal target... e.g. "Find 10 Founders of Series A startups in London focused on AI or CleanTech"'
+                        aria-label="Search prompt"
                         {...field}
                       />
                     </div>
@@ -90,7 +91,7 @@ export function SearchBox({ isPending, onSearch }: SearchBoxProps) {
                   </span>
                 ) : (
                   <span className="flex items-center gap-2">
-                    <Search className="h-4 w-4" />
+                    <Search className="h-4 w-4" aria-hidden="true" />
                     Launch Prospector
                   </span>
                 )}
