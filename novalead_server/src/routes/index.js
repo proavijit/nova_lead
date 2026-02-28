@@ -11,6 +11,14 @@ router.get('/health', (req, res) => {
   res.json({ status: 'ok' });
 });
 
+router.get('/version', (req, res) => {
+  res.json({
+    version: '1.0.4-robust-schema-sync',
+    timestamp: new Date().toISOString(),
+    env: process.env.NODE_ENV
+  });
+});
+
 router.use('/auth', authRoutes);
 router.use('/prospects', authMiddleware, prospectRoutes);
 router.use('/searches', authMiddleware, searchRoutes);
