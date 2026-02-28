@@ -87,11 +87,15 @@ async function createUser(email, passwordHash, plainPassword) {
         )
         .select('*')
         .single());
+      
+      if (!error && data) {
+        data.credits = env.INITIAL_CREDITS;
+      }
     }
   }
 
   if (error) {
-    if (isUsersTableCacheError(error)) {
+    if (isUsersTableCacheError(error) || isMissingColumnError(error, 'credits') || isMissingColumnError(error, 'password_hash')) {
       return {
         id: authUserId,
         email,
@@ -115,6 +119,17 @@ async function findUserByEmail(email) {
     .single();
 
   if (error) {
+    if (isMissingColumnError(error, 'credits') || isMissingColumnError(error, 'password_hash')) {
+      const { data: basicData, error: basicError } = await supabase
+        .from('users')
+        .select('id, email')
+        .eq('email', email)
+        .single();
+      
+      if (basicData && !basicError) {
+        return { ...basicData, credits: env.INITIAL_CREDITS, password_hash: null };
+      }
+    }
     return null;
   }
 
@@ -146,6 +161,17 @@ async function getUserById(id) {
     .single();
 
   if (error) {
+    if (isMissingColumnError(error, 'credits')) {
+      const { data: basicData, error: basicError } = await supabase
+        .from('users')
+        .select('id, email, created_at')
+        .eq('id', id)
+        .single();
+      
+      if (basicData && !basicError) {
+        return { ...basicData, credits: env.INITIAL_CREDITS };
+      }
+    }
     throw new AppError('User not found', 404);
   }
 
