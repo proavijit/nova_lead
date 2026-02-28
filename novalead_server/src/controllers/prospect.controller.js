@@ -23,7 +23,7 @@ const { buildCanonicalFilters, computeFilterHash, getCacheExpiryDate } = require
 
 const DEFAULT_USER_ID = '00000000-0000-0000-0000-000000000000';
 
-const ENABLE_DEBUG_LOGGING = process.env.NODE_ENV !== 'production';
+const ENABLE_DEBUG_LOGGING = true;
 
 function debugLog(...args) {
   if (ENABLE_DEBUG_LOGGING) {

@@ -1,5 +1,16 @@
 const Joi = require('joi');
-require('dotenv').config({ override: true });
+const path = require('path');
+
+// Load .env first (local development)
+require('dotenv').config();
+
+// Also load .env.production as fallback for Vercel deployments
+// dotenv won't overwrite vars that are already set unless override is true,
+// so Vercel dashboard env vars take priority, and .env.production fills gaps.
+require('dotenv').config({
+  path: path.resolve(process.cwd(), '.env.production'),
+  override: false
+});
 
 let cachedEnv;
 
@@ -91,6 +102,15 @@ function getEnv() {
     console.warn(
       '[Config warning] SUPABASE_SERVICE_ROLE_KEY looks like a publishable/anon key. Server can start, but auth.admin endpoints (register via auth.users) will fail until you set the real service_role key.'
     );
+  }
+
+  // Log env key availability in production to help diagnose deployment issues
+  if (value.NODE_ENV === 'production' || process.env.VERCEL) {
+    const mask = (key) => (key ? `${key.slice(0, 8)}...` : '(missing)');
+    console.log('[Env] OPENROUTER_API_KEY:', mask(value.OPENROUTER_API_KEY));
+    console.log('[Env] EXPLORIUM_API_KEY:', mask(value.EXPLORIUM_API_KEY));
+    console.log('[Env] SUPABASE_URL:', value.SUPABASE_URL ? 'set' : '(missing)');
+    console.log('[Env] NODE_ENV:', value.NODE_ENV);
   }
 
   cachedEnv = value;
