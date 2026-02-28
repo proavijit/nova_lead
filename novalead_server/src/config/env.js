@@ -20,7 +20,9 @@ const envSchema = Joi.object({
   EXPLORIUM_API_KEY: Joi.string().required(),
   EXPLORIUM_BASE_URL: Joi.string().uri().required(),
   EXPLORIUM_TIMEOUT_MS: Joi.number().integer().min(1000).default(20000),
-  CORS_ORIGIN: Joi.string().allow('').default('http://localhost:3000,http://localhost:3001'),
+  CORS_ORIGIN: Joi.string().allow('').default(
+    'http://localhost:3000,http://localhost:3001,https://novaleadclient.vercel.app'
+  ),
 
   CREDIT_COST_PER_SEARCH: Joi.number().integer().min(1).default(1),
   INITIAL_CREDITS: Joi.number().integer().min(0).default(10)

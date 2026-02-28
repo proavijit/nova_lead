@@ -20,7 +20,14 @@ export function useSearch() {
       return data
     },
     onSuccess: (data) => {
-      toast.success(`Found ${data.data.leads.length} leads`)
+      const cacheHit = Boolean(data.data.cache_hit)
+      const strategy = data.data.cache_strategy ? ` (${data.data.cache_strategy})` : ''
+      const charged = data.data.credits_charged ?? 0
+      const summary = cacheHit
+        ? `Cache hit${strategy}: ${data.data.leads.length} leads, 0 credits charged`
+        : `Cache miss: ${data.data.leads.length} leads, ${charged} credit${charged === 1 ? '' : 's'} charged`
+
+      toast.success(summary)
       queryClient.invalidateQueries({ queryKey: ['credits'] })
       queryClient.invalidateQueries({ queryKey: ['searches'] })
     },

@@ -15,7 +15,12 @@ export function useSearchHistory() {
       return (data.data.items || []).map((item) => ({
         ...item,
         result_count: item.result_count ?? item.total_results ?? 0,
-        credits_used: item.credits_used ?? 1
+        credits_charged: item.credits_charged ?? item.credits_used ?? 0,
+        credits_used: item.credits_used ?? item.credits_charged ?? 0,
+        cache_hit: Boolean(item.cache_hit),
+        cache_strategy: item.cache_strategy ?? (item.cache_hit ? 'hash' : 'miss'),
+        cache_id: item.cache_id ?? null,
+        lead_snapshot: item.lead_snapshot ?? null
       }))
     },
     staleTime: 30_000,
@@ -49,9 +54,35 @@ export function useSearchById(id: string) {
     queryKey: ['searches', id],
     queryFn: async () => {
       const { data } = await api.get<SearchDetailResponse>(`/searches/${id}`)
+      
+      const rawLeads = data.data.leads || []
+      const leadSnapshot = data.data.search.lead_snapshot
+      
+      const leads = rawLeads.length > 0 ? rawLeads : (leadSnapshot || []).map((snapshot: any) => ({
+        name: snapshot.name ?? null,
+        title: snapshot.title ?? null,
+        linkedin_url: snapshot.linkedin_url ?? null,
+        company: {
+          name: snapshot.company?.name ?? null,
+          linkedin_url: snapshot.company?.linkedin_url ?? null,
+          website: snapshot.company?.website ?? null
+        }
+      }))
+
       return {
         ...data.data,
-        leads: (data.data.leads || []).map((lead: any) => ({
+        search: {
+          ...data.data.search,
+          result_count: data.data.search.result_count ?? data.data.search.total_results ?? 0,
+          credits_charged: data.data.search.credits_charged ?? data.data.search.credits_used ?? 0,
+          credits_used: data.data.search.credits_used ?? data.data.search.credits_charged ?? 0,
+          cache_hit: Boolean(data.data.search.cache_hit),
+          cache_strategy:
+            data.data.search.cache_strategy ?? (data.data.search.cache_hit ? 'hash' : 'miss'),
+          cache_id: data.data.search.cache_id ?? null,
+          lead_snapshot: leadSnapshot ?? null
+        },
+        leads: leads.map((lead: any) => ({
           name: lead.name ?? null,
           title: lead.title ?? null,
           linkedin_url: lead.linkedin_url ?? null,

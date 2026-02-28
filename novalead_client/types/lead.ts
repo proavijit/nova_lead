@@ -15,6 +15,10 @@ export interface SearchResponse {
   success: boolean
   data: {
     search_id: string
+    cache_id?: string | null
+    cache_hit?: boolean
+    cache_strategy?: 'hash' | 'miss' | 'semantic' | string | null
+    credits_charged?: number
     credits_remaining: number
     total_results: number
     page: number

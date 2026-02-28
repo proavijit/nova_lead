@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { BarChart3, Coins, Search, Users } from 'lucide-react'
 
+import { CacheStatusBadge } from '@/components/search/CacheStatusBadge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { useCredits } from '@/hooks/useCredits'
@@ -49,6 +50,7 @@ export default function DashboardHomePage() {
             <TableHeader>
               <TableRow className="border-slate-200 hover:bg-transparent">
                 <TableHead>Prompt</TableHead>
+                <TableHead>Cache</TableHead>
                 <TableHead>Leads Found</TableHead>
                 <TableHead>Credits Used</TableHead>
                 <TableHead>Date</TableHead>
@@ -59,8 +61,15 @@ export default function DashboardHomePage() {
               {searches.slice(0, 6).map((item) => (
                 <TableRow key={item.id} className="border-slate-200">
                   <TableCell className="max-w-sm truncate">{item.prompt}</TableCell>
+                  <TableCell>
+                    <CacheStatusBadge
+                      cacheHit={item.cache_hit}
+                      cacheStrategy={item.cache_strategy}
+                      className="w-fit"
+                    />
+                  </TableCell>
                   <TableCell>{item.result_count ?? 0}</TableCell>
-                  <TableCell>{item.credits_used ?? 1}</TableCell>
+                  <TableCell>{item.credits_used ?? 0}</TableCell>
                   <TableCell>{new Date(item.created_at).toLocaleDateString()}</TableCell>
                   <TableCell>
                     <Link className="text-blue-400 hover:underline" href={`/dashboard/history/${item.id}`}>

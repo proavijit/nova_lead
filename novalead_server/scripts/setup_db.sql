@@ -51,6 +51,48 @@ CREATE TABLE IF NOT EXISTS credit_transactions (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- global_search_cache table
+CREATE TABLE IF NOT EXISTS global_search_cache (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  filter_hash TEXT UNIQUE NOT NULL,
+  canonical_filters JSONB NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending',
+  total_results INTEGER DEFAULT 0,
+  provider TEXT NOT NULL DEFAULT 'explorium',
+  expires_at TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '30 days'),
+  last_hit_at TIMESTAMPTZ,
+  hit_count BIGINT DEFAULT 0,
+  error_message TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- global_cached_leads table
+CREATE TABLE IF NOT EXISTS global_cached_leads (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  cache_id UUID REFERENCES global_search_cache(id) ON DELETE CASCADE,
+  lead_rank INTEGER DEFAULT 0,
+  name TEXT,
+  title TEXT,
+  linkedin_url TEXT,
+  company_name TEXT,
+  company_linkedin_url TEXT,
+  company_website TEXT,
+  raw_data JSONB,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE searches
+  ADD COLUMN IF NOT EXISTS cache_id UUID REFERENCES global_search_cache(id),
+  ADD COLUMN IF NOT EXISTS cache_hit BOOLEAN DEFAULT FALSE,
+  ADD COLUMN IF NOT EXISTS cache_strategy TEXT,
+  ADD COLUMN IF NOT EXISTS credits_charged INTEGER DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS canonical_filters JSONB;
+
+CREATE INDEX IF NOT EXISTS idx_global_search_cache_status_expires ON global_search_cache(status, expires_at);
+CREATE INDEX IF NOT EXISTS idx_global_cached_leads_cache_rank ON global_cached_leads(cache_id, lead_rank);
+CREATE INDEX IF NOT EXISTS idx_searches_user_created_at ON searches(user_id, created_at DESC);
+
 -- 3. Create RPC FUNCTIONS
 
 -- registration function (bypasses schema cache issues)

@@ -1,78 +1,76 @@
+require('dotenv').config();
+const fs = require('fs');
+const path = require('path');
 const { Pool } = require('pg');
 
-const pool = new Pool({
-  host: 'xsksfavlzheeygcbqutt.supabase.co',
-  port: 6543,
-  database: 'postgres',
-  user: 'postgres',
-  password: 'sb_publishable_mxs1HaYwQae3mpdaeMJxNA_eXQywLeT',
-  ssl: { rejectUnauthorized: false }
-});
+function buildConnectionConfig() {
+  if (process.env.SUPABASE_DB_URL) {
+    return {
+      connectionString: process.env.SUPABASE_DB_URL,
+      ssl: { rejectUnauthorized: false }
+    };
+  }
 
-async function createTable() {
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const dbPassword = process.env.SUPABASE_DB_PASSWORD;
+  const dbUser = process.env.SUPABASE_DB_USER || 'postgres';
+  const dbName = process.env.SUPABASE_DB_NAME || 'postgres';
+  const dbPort = Number(process.env.SUPABASE_DB_PORT || 6543);
+
+  if (!supabaseUrl || !dbPassword) {
+    throw new Error(
+      'Missing DB credentials. Set SUPABASE_DB_URL, or set SUPABASE_URL + SUPABASE_DB_PASSWORD (optionally SUPABASE_DB_USER/SUPABASE_DB_NAME/SUPABASE_DB_PORT).'
+    );
+  }
+
+  const host = new URL(supabaseUrl).hostname;
+  return {
+    host,
+    port: dbPort,
+    database: dbName,
+    user: dbUser,
+    password: dbPassword,
+    ssl: { rejectUnauthorized: false }
+  };
+}
+
+async function run() {
+  const sqlPath = path.join(__dirname, 'scripts', 'setup_db.sql');
+  if (!fs.existsSync(sqlPath)) {
+    throw new Error(`SQL file not found: ${sqlPath}`);
+  }
+
+  const sql = fs.readFileSync(sqlPath, 'utf8');
+  const pool = new Pool(buildConnectionConfig());
   const client = await pool.connect();
-  
+
   try {
-    console.log('Connected to database. Creating users table...');
-    
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS users (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        email TEXT UNIQUE NOT NULL,
-        password_hash TEXT NOT NULL,
-        credits INTEGER DEFAULT 10,
-        created_at TIMESTAMPTZ DEFAULT NOW()
-      )
-    `);
-    console.log('Users table created!');
-    
-    await client.query(`ALTER TABLE users DISABLE ROW LEVEL SECURITY`);
-    console.log('RLS disabled!');
-    
-    await client.query(`GRANT ALL ON users TO anon, authenticated`);
-    await client.query(`GRANT ALL ON SEQUENCE users_id_seq TO anon, authenticated`);
-    console.log('Permissions granted!');
-    
-    await client.query(`
-      CREATE OR REPLACE FUNCTION register_user(
-        user_email TEXT,
-        user_password_hash TEXT,
-        initial_credits INTEGER DEFAULT 10
-      )
-      RETURNS TABLE(id UUID, email TEXT, credits INTEGER, created_at TIMESTAMPTZ)
-      LANGUAGE plpgsql
-      SECURITY DEFINER
-      AS $$
-      DECLARE
-        new_user RECORD;
-      BEGIN
-        INSERT INTO users (email, password_hash, credits)
-        VALUES (user_email, user_password_hash, initial_credits)
-        RETURNING id, email, credits, created_at
-        INTO new_user;
-        RETURN QUERY SELECT new_user.id, new_user.email, new_user.credits, new_user.created_at;
-      END;
-      $$
-    `);
-    console.log('register_user function created!');
-    
-    await client.query(`GRANT EXECUTE ON FUNCTION register_user TO anon, authenticated`);
-    console.log('Function permissions granted!');
-    
-    const result = await client.query(`
-      SELECT table_name FROM information_schema.tables 
-      WHERE table_schema = 'public' AND table_name = 'users'
-    `);
-    console.log('Tables in public schema:', result.rows);
-    
-    console.log('\n✅ Database setup complete!');
-    
+    console.log('Applying schema from scripts/setup_db.sql ...');
+    await client.query('BEGIN');
+    await client.query(sql);
+    await client.query('COMMIT');
+    console.log('Schema sync complete.');
   } catch (err) {
-    console.error('Error:', err.message);
+    await client.query('ROLLBACK');
+    throw err;
   } finally {
     client.release();
     await pool.end();
   }
 }
 
-createTable();
+run()
+  .then(() => process.exit(0))
+  .catch((err) => {
+    const details = [
+      err?.message ? `message=${err.message}` : null,
+      err?.code ? `code=${err.code}` : null,
+      err?.detail ? `detail=${err.detail}` : null,
+      err?.hint ? `hint=${err.hint}` : null,
+      err?.stack ? `stack=${err.stack}` : null
+    ]
+      .filter(Boolean)
+      .join(' | ');
+    console.error(`DB setup failed: ${details || 'Unknown error'}`);
+    process.exit(1);
+  });

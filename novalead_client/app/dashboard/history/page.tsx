@@ -1,17 +1,25 @@
 'use client'
 
 import Link from 'next/link'
+import { Coins, Fingerprint } from 'lucide-react'
 
+import { ErrorAlert } from '@/components/common/ErrorAlert'
+import { CacheStatusBadge } from '@/components/search/CacheStatusBadge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useDeleteSearch, useSearchHistory } from '@/hooks/useSearchHistory'
 
 export default function DashboardHistoryPage() {
-  const { data = [], isLoading } = useSearchHistory()
+  const { data = [], isLoading, error } = useSearchHistory()
   const { mutate: deleteSearch, isPending } = useDeleteSearch()
 
   if (isLoading) {
     return <p className="text-sm text-slate-600">Loading search history...</p>
+  }
+
+  if (error) {
+    const message = (error as any)?.response?.data?.error || 'Failed to load search history'
+    return <ErrorAlert message={message} />
   }
 
   return (
@@ -21,26 +29,44 @@ export default function DashboardHistoryPage() {
           <CardHeader>
             <CardTitle className="text-base text-slate-900">{item.prompt}</CardTitle>
           </CardHeader>
-          <CardContent className="flex flex-wrap items-center justify-between gap-3 text-sm text-slate-600">
-            <div className="flex gap-6">
-              <span>Leads: {item.result_count ?? 0}</span>
-              <span>Credits: {item.credits_used ?? 1}</span>
-              <span>{new Date(item.created_at).toLocaleString()}</span>
+          <CardContent className="space-y-3 text-sm text-slate-600">
+            <div className="flex flex-wrap items-center gap-2">
+              <CacheStatusBadge cacheHit={item.cache_hit} cacheStrategy={item.cache_strategy} />
+              <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5">
+                <Coins className="h-3.5 w-3.5 text-slate-500" />
+                Credits charged: <strong className="text-slate-900">{item.credits_charged ?? 0}</strong>
+              </span>
+              {item.cache_id && (
+                <span
+                  className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 font-mono text-xs"
+                  title={item.cache_id}
+                >
+                  <Fingerprint className="h-3.5 w-3.5 text-slate-500" />
+                  {item.cache_id.slice(0, 8)}...
+                </span>
+              )}
             </div>
-            <div className="flex gap-2">
-              <Link href={`/dashboard/history/${item.id}`}>
-                <Button size="sm" variant="outline" className="border-slate-300 bg-white">
-                  View
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex gap-6">
+              <span>Leads: {item.result_count ?? 0}</span>
+              <span>Credits: {item.credits_used ?? 0}</span>
+              <span>{new Date(item.created_at).toLocaleString()}</span>
+              </div>
+              <div className="flex gap-2">
+                <Link href={`/dashboard/history/${item.id}`}>
+                  <Button size="sm" variant="outline" className="border-slate-300 bg-white">
+                    View
+                  </Button>
+                </Link>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  disabled={isPending}
+                  onClick={() => deleteSearch(item.id)}
+                >
+                  Delete
                 </Button>
-              </Link>
-              <Button
-                size="sm"
-                variant="destructive"
-                disabled={isPending}
-                onClick={() => deleteSearch(item.id)}
-              >
-                Delete
-              </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
