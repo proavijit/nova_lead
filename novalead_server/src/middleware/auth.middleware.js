@@ -1,7 +1,7 @@
 const jwt = require('jsonwebtoken');
 const { getEnv } = require('../config/env');
 const { AppError } = require('../utils/apiError');
-const { supabase } = require('../config/db');
+const prisma = require('../services/prisma.service');
 
 const env = getEnv();
 
@@ -21,57 +21,26 @@ module.exports = async function authMiddleware(req, res, next) {
       return next(new AppError('Invalid or expired token', 401));
     }
 
-    let { data, error } = await supabase
-      .from('users')
-      .select('id, email, credits')
-      .eq('id', decoded.id)
-      .single();
+    // Use Prisma for user lookup with credit inclusion
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.id },
+      include: { Credit: true }
+    });
 
-    console.log('[AUTH DEBUG] Looking for user:', decoded.id, 'Result:', { error, hasData: !!data });
-
-    if (
-      error &&
-      typeof error?.message === 'string' &&
-      error.message.toLowerCase().includes('column users.credits does not exist')
-    ) {
-      ({ data, error } = await supabase
-        .from('users')
-        .select('id, email')
-        .eq('id', decoded.id)
-        .single());
-      if (data && !error) {
-        data = { ...data, credits: env.INITIAL_CREDITS };
-      }
-    }
-
-    if (error || !data) {
-      console.log('[AUTH DEBUG] User lookup error or missing data:', error?.message);
-
-      // Fallback: Check Supabase Auth directly
-      console.log('[AUTH DEBUG] Checking Supabase Auth directly as fallback...');
-      const { data: authUserData, error: authUserError } = await supabase.auth.admin.getUserById(decoded.id);
-
-      if (authUserError || !authUserData?.user?.id) {
-        console.log('[AUTH DEBUG] User not found in auth either:', authUserError?.message);
-        return next(new AppError('User not found', 401));
-      }
-
-      req.user = {
-        id: authUserData.user.id,
-        email: authUserData.user.email,
-        credits: env.INITIAL_CREDITS
-      };
-      return next();
+    if (!user) {
+      console.log('[AUTH] User not found in database:', decoded.id);
+      return next(new AppError('User session invalid', 401));
     }
 
     req.user = {
-      id: data.id,
-      email: data.email,
-      credits: data.credits
+      id: user.id,
+      email: user.email,
+      credits: user.Credit?.balance ?? user.credits ?? env.INITIAL_CREDITS
     };
 
     next();
   } catch (err) {
+    console.error('[AUTH] Middleware error:', err.message);
     next(err);
   }
 };

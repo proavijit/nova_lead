@@ -1,0 +1,123 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(uuid()) @db.Uuid
+  email         String    @unique
+  credits       Int?      @default(10)
+  password_hash String?
+  created_at    DateTime  @default(now()) @db.Timestamptz(6)
+
+  Credit        Credit?
+  Profile       Profile?
+  Searches      Search[]
+  Leads         Lead[]
+
+  @@map("users")
+}
+
+model Profile {
+  user_id    String   @id @db.Uuid
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+
+  @@map("profiles")
+}
+
+model Credit {
+  user_id    String   @id @db.Uuid
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  balance    Int      @default(10)
+  updated_at DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  @@map("credits")
+}
+
+model Search {
+  id                String   @id @default(uuid()) @db.Uuid
+  user_id           String   @db.Uuid
+  user              User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  prompt            String?
+  query             String?  // Legacy column
+  filters           Json?
+  total_results     Int?     @default(0)
+  credits_charged   Int?     @default(0)
+  cache_hit         Boolean? @default(false)
+  cache_strategy    String?
+  cache_id          String?  @db.Uuid
+  canonical_filters Json?
+  lead_snapshot     Json?
+  created_at        DateTime @default(now()) @db.Timestamptz(6)
+
+  Leads             Lead[]
+
+  @@map("searches")
+}
+
+model Lead {
+  id                   String   @id @default(uuid()) @db.Uuid
+  search_id            String   @db.Uuid
+  search               Search   @relation(fields: [search_id], references: [id], onDelete: Cascade)
+  user_id              String?  @db.Uuid
+  user                 User?    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  userid               String?  @db.Uuid
+  name                 String?
+  email                String?
+  phone                String?
+  title                String?
+  linkedin_url         String?
+  company_name         String?
+  company_linkedin_url String?
+  company_website      String?
+  raw_data             Json?
+  created_at           DateTime @default(now()) @db.Timestamptz(6)
+
+  @@map("leads")
+}
+
+model GlobalSearchCache {
+  id                String   @id @default(uuid()) @db.Uuid
+  filter_hash       String   @unique
+  query             String?  // Legacy column
+  canonical_filters Json?
+  results           Json?    // Legacy column for results object
+  status            String?  @default("pending")
+  provider          String?  @default("explorium")
+  total_results     Int?     @default(0)
+  error_message     String?
+  expires_at        DateTime? @db.Timestamptz(6)
+  hit_count         Int?     @default(0)
+  last_hit_at       DateTime? @db.Timestamptz(6)
+  created_at        DateTime @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  Leads             GlobalCachedLead[]
+
+  @@map("global_search_cache")
+}
+
+model GlobalCachedLead {
+  id                   String   @id @default(uuid()) @db.Uuid
+  cache_id             String   @db.Uuid
+  cache                GlobalSearchCache @relation(fields: [cache_id], references: [id], onDelete: Cascade)
+  name                 String?
+  title                String?
+  linkedin_url         String?
+  company_name         String?
+  company_linkedin_url String?
+  company_website      String?
+  raw_data             Json?
+  created_at           DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([cache_id])
+  @@map("global_cached_leads")
+}
