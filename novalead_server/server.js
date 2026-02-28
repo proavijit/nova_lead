@@ -7,9 +7,22 @@ const env = getEnv();
 const PORT = env.PORT || 5000;
 
 async function runMigrations() {
-  const pool = new Pool({
-    connectionString: process.env.SUPABASE_DB_URL
-  });
+  let poolConfig;
+  if (process.env.SUPABASE_DB_URL) {
+    poolConfig = { connectionString: process.env.SUPABASE_DB_URL, ssl: { rejectUnauthorized: false } };
+  } else {
+    const host = new URL(process.env.SUPABASE_URL).hostname;
+    poolConfig = {
+      host,
+      port: Number(process.env.SUPABASE_DB_PORT || 6543),
+      database: process.env.SUPABASE_DB_NAME || 'postgres',
+      user: process.env.SUPABASE_DB_USER || 'postgres',
+      password: process.env.SUPABASE_DB_PASSWORD,
+      ssl: { rejectUnauthorized: false }
+    };
+  }
+  
+  const pool = new Pool(poolConfig);
   
   try {
     await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS credits INTEGER DEFAULT 10');
