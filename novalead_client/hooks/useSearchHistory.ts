@@ -81,6 +81,7 @@ export function useSearchById(id: string) {
           cache_strategy:
             data.data.search.cache_strategy ?? (data.data.search.cache_hit ? 'hash' : 'miss'),
           cache_id: data.data.search.cache_id ?? null,
+          filter_hash: data.data.search.filter_hash ?? null,
           lead_snapshot: leadSnapshot ?? null
         },
         leads: leads.map((lead: any) => ({

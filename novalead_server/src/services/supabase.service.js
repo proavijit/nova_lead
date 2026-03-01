@@ -189,8 +189,11 @@ async function listSearches(userId, page = 1, limit = 10) {
       prompt: item.prompt ?? item.query ?? '',
       total_results: item.total_results ?? 0,
       credits_charged: item.credits_charged ?? 0,
-      lead_snapshot: item.lead_snapshot || [],
-      filter_hash: item.filter_hash ?? null
+      cache_hit: item.cache_hit ?? false,
+      cache_strategy: item.cache_strategy ?? null,
+      cache_id: item.cache_id ?? null,
+      filter_hash: item.filter_hash ?? null,
+      lead_snapshot: item.lead_snapshot || []
     }));
 
     return {
@@ -202,6 +205,22 @@ async function listSearches(userId, page = 1, limit = 10) {
   } catch (error) {
     throw new AppError(`Failed to list searches: ${error.message}`, 500);
   }
+}
+
+function transformSnapshotToLeads(snapshot) {
+  if (!Array.isArray(snapshot) || snapshot.length === 0) return [];
+  return snapshot.map((lead) => ({
+    id: lead.id ?? null,
+    name: lead.name ?? null,
+    title: lead.title ?? null,
+    linkedin_url: lead.linkedin_url ?? null,
+    email: lead.email ?? null,
+    phone: lead.phone ?? null,
+    company_name: lead.company?.name ?? null,
+    company_linkedin_url: lead.company?.linkedin_url ?? null,
+    company_website: lead.company?.website ?? null,
+    raw_data: lead.raw_data ?? null
+  }));
 }
 
 async function getSearchWithLeads(userId, searchId) {
@@ -225,6 +244,10 @@ async function getSearchWithLeads(userId, searchId) {
         prompt: search.prompt ?? search.query ?? '',
         total_results: search.total_results ?? 0,
         credits_charged: search.credits_charged ?? 0,
+        cache_hit: search.cache_hit ?? false,
+        cache_strategy: search.cache_strategy ?? null,
+        cache_id: search.cache_id ?? null,
+        filter_hash: search.filter_hash ?? null,
         lead_snapshot: search.lead_snapshot || []
       },
       leads: leads.length > 0 ? leads.map((lead) => ({
@@ -234,7 +257,7 @@ async function getSearchWithLeads(userId, searchId) {
         company_name: lead.company_name ?? null,
         company_linkedin_url: lead.company_linkedin_url ?? null,
         company_website: lead.company_website ?? null
-      })) : (search.lead_snapshot || [])
+      })) : transformSnapshotToLeads(search.lead_snapshot || [])
     };
   } catch (error) {
     if (error instanceof AppError) throw error;
