@@ -11,27 +11,26 @@ const apiRouter = require('./routes');
 
 const app = express();
 
-// Enable CORS at the very beginning of the middleware chain
-app.use(
-  cors({
-    origin: (origin, callback) => callback(null, true), // Reflect request origin
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: [
-      "Content-Type",
-      "Authorization",
-      "X-Requested-With",
-      "Accept",
-    ],
-    optionsSuccessStatus: 200, // Important for some older browsers/clients
-  })
-);
+// 1. Manual CORS handling - must be the first middleware
+app.use((req, res, next) => {
+  const origin = req.headers.origin || 'https://novaleadclient.vercel.app';
 
-// Explicitly handle preflight requests for all routes
-app.options('*', cors());
+  // Always set these headers
+  res.header('Access-Control-Allow-Origin', origin);
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept');
 
+  // Handle preflight
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  next();
+});
+
+// 2. Helmet with cross-origin policy disabled
 app.use(helmet({
-  crossOriginResourcePolicy: false, // Essential for cross-origin API access
+  crossOriginResourcePolicy: false,
 }));
 
 app.use(express.json());
