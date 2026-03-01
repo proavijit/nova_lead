@@ -1,16 +1,51 @@
 'use client'
 
+import { useMemo } from 'react'
 import { useParams } from 'next/navigation'
 import { Coins, Fingerprint } from 'lucide-react'
 
 import { CacheStatusBadge } from '@/components/search/CacheStatusBadge'
 import { SearchResultsTable } from '@/components/search/SearchResultsTable'
+import { Button } from '@/components/ui/button'
 import { useSearchById } from '@/hooks/useSearchHistory'
 
 export default function DashboardHistoryDetailPage() {
   const params = useParams<{ id: string }>()
   const id = params?.id ?? ''
   const { data, isLoading } = useSearchById(id)
+  const leads = data?.leads ?? []
+
+  const csv = useMemo(() => {
+    if (!leads.length) return ''
+
+    const rows = [
+      ['name', 'title', 'linkedin_url', 'company_name', 'company_linkedin_url', 'company_website'].join(','),
+      ...leads.map((lead: any) =>
+        [
+          lead.name,
+          lead.title,
+          lead.linkedin_url,
+          lead.company?.name ?? lead.company_name,
+          lead.company?.linkedin_url ?? lead.company_linkedin_url,
+          lead.company?.website ?? lead.company_website
+        ]
+          .map((value) => `"${(value ?? '').toString().replaceAll('"', '""')}"`)
+          .join(',')
+      )
+    ]
+
+    return rows.join('\n')
+  }, [leads])
+
+  const exportCsv = () => {
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `leads-${id}-${Date.now()}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
 
   return (
     <div className="space-y-6">
@@ -36,7 +71,13 @@ export default function DashboardHistoryDetailPage() {
           )}
         </div>
       )}
-      <SearchResultsTable leads={data?.leads ?? []} isLoading={isLoading} />
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold">Results</h2>
+        <Button variant="outline" onClick={exportCsv} disabled={!leads.length}>
+          Export CSV
+        </Button>
+      </div>
+      <SearchResultsTable leads={leads} isLoading={isLoading} />
     </div>
   )
 }
