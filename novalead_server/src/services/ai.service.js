@@ -2,8 +2,6 @@ const openrouter = require('../config/openrouter');
 const { AppError } = require('../utils/apiError');
 const { getEnv } = require('../config/env');
 
-const env = getEnv();
-
 const SYSTEM_PROMPT = `
 You are an API filter builder for the Explorium Prospects API.
 Convert user natural language into a valid JSON filter object.
@@ -57,7 +55,7 @@ async function parseNLToFilters(prompt) {
   try {
     const response = await requestWithRetry(() =>
       openrouter.post('/chat/completions', {
-        model: env.OPENROUTER_MODEL,
+        model: getEnv().OPENROUTER_MODEL,
         messages: [
           { role: 'system', content: SYSTEM_PROMPT },
           { role: 'user', content: prompt }
@@ -84,15 +82,28 @@ async function parseNLToFilters(prompt) {
     }
     const status = err?.response?.status;
     const code = err?.code;
+    const responseData = err?.response?.data;
 
-    const keyPrefix = env.OPENROUTER_API_KEY
-      ? env.OPENROUTER_API_KEY.slice(0, 10) + '...'
-      : '(not set)';
+    const currentKey = getEnv().OPENROUTER_API_KEY;
+    const keyDiag = {
+      prefix: currentKey ? currentKey.slice(0, 10) + '...' : '(not set)',
+      length: currentKey ? currentKey.length : 0,
+      startsWithSkOr: currentKey ? currentKey.startsWith('sk-or-') : false,
+      hasQuotes: currentKey ? (currentKey.includes('"') || currentKey.includes("'")) : false,
+      hasNewlines: currentKey ? /[\r\n]/.test(currentKey) : false,
+      rawEnvPrefix: process.env.OPENROUTER_API_KEY
+        ? process.env.OPENROUTER_API_KEY.slice(0, 10) + '...'
+        : '(raw not set)',
+      rawEnvLength: process.env.OPENROUTER_API_KEY
+        ? process.env.OPENROUTER_API_KEY.length
+        : 0
+    };
 
     if (status === 401) {
-      console.error('[AI SERVICE] 401 Unauthorized. OPENROUTER_API_KEY prefix:', keyPrefix);
+      console.error('[AI SERVICE] 401 Unauthorized. Key diagnostics:', keyDiag);
+      console.error('[AI SERVICE] OpenRouter response body:', responseData);
       throw new AppError(
-        'AI service is unauthorized. The OPENROUTER_API_KEY may be invalid or expired. Check Vercel environment variables.',
+        'AI service returned 401 Unauthorized. The OPENROUTER_API_KEY is likely malformed, expired, or has extra characters. Check Vercel env vars for stray quotes or whitespace.',
         503
       );
     }
@@ -100,8 +111,9 @@ async function parseNLToFilters(prompt) {
     console.error('[AI SERVICE] Request failed:', {
       status,
       code,
-      keyPrefix,
-      message: err?.message
+      keyDiag,
+      message: err?.message,
+      responseData
     });
 
     throw new AppError(

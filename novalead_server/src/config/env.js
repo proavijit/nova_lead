@@ -2,15 +2,16 @@ const Joi = require('joi');
 const path = require('path');
 
 // Load .env first (local development)
-require('dotenv').config();
-
-// Also load .env.production as fallback for Vercel deployments
-// dotenv won't overwrite vars that are already set unless override is true,
-// so Vercel dashboard env vars take priority, and .env.production fills gaps.
-require('dotenv').config({
-  path: path.resolve(process.cwd(), '.env.production'),
-  override: false
-});
+// dotenv may be a devDependency; guard against MODULE_NOT_FOUND in production
+try {
+  require('dotenv').config();
+  require('dotenv').config({
+    path: path.resolve(process.cwd(), '.env.production'),
+    override: false
+  });
+} catch (_e) {
+  // In production (Vercel), env vars are injected by the platform; dotenv is optional.
+}
 
 let cachedEnv;
 
@@ -43,7 +44,14 @@ function getEnv() {
   if (cachedEnv) return cachedEnv;
   const clean = (value) => {
     if (typeof value !== 'string') return value;
-    return value.trim().replace(/\\r\\n|\\n/g, '');
+    // Strip surrounding quotes (single or double) that users may accidentally
+    // paste into Vercel dashboard when copying from .env files
+    let v = value.trim();
+    if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
+      v = v.slice(1, -1);
+    }
+    // Remove actual newlines/carriage-returns (not escaped literal strings)
+    return v.replace(/\r\n|\r|\n/g, '').trim();
   };
 
   const {
@@ -106,11 +114,21 @@ function getEnv() {
 
   // Log env key availability in production to help diagnose deployment issues
   if (value.NODE_ENV === 'production' || process.env.VERCEL) {
-    const mask = (key) => (key ? `${key.slice(0, 8)}...` : '(missing)');
+    const mask = (key) => (key ? `${key.slice(0, 10)}...${key.slice(-4)}` : '(missing)');
+    const charCheck = (key) => {
+      if (!key) return '(missing)';
+      const hasQuotes = key.includes('"') || key.includes("'");
+      const hasNewlines = /[\r\n]/.test(key);
+      const hasSpaces = key !== key.trim();
+      return `len=${key.length} quotes=${hasQuotes} newlines=${hasNewlines} spaces=${hasSpaces} prefix=${key.slice(0, 8)}`;
+    };
     console.log('[Env] OPENROUTER_API_KEY:', mask(value.OPENROUTER_API_KEY));
+    console.log('[Env] OPENROUTER_API_KEY diagnostics:', charCheck(value.OPENROUTER_API_KEY));
+    console.log('[Env] OPENROUTER_API_KEY raw diagnostics:', charCheck(process.env.OPENROUTER_API_KEY));
     console.log('[Env] EXPLORIUM_API_KEY:', mask(value.EXPLORIUM_API_KEY));
     console.log('[Env] SUPABASE_URL:', value.SUPABASE_URL ? 'set' : '(missing)');
     console.log('[Env] NODE_ENV:', value.NODE_ENV);
+    console.log('[Env] VERCEL:', process.env.VERCEL || '(not set)');
   }
 
   cachedEnv = value;
