@@ -43,7 +43,9 @@ function getEnv() {
   if (cachedEnv) return cachedEnv;
   const clean = (value) => {
     if (typeof value !== 'string') return value;
-    return value.trim().replace(/\\r\\n|\\n/g, '');
+    // Strip actual newlines (\r\n, \n, \r), surrounding whitespace, and stray quotes
+    // The old regex /\\r\\n|\\n/ matched LITERAL text "\r\n" not actual newline chars
+    return value.trim().replace(/\r?\n|\r/g, '').replace(/^["']+|["']+$/g, '');
   };
 
   const {
@@ -106,11 +108,17 @@ function getEnv() {
 
   // Log env key availability in production to help diagnose deployment issues
   if (value.NODE_ENV === 'production' || process.env.VERCEL) {
-    const mask = (key) => (key ? `${key.slice(0, 8)}...` : '(missing)');
+    const mask = (key) => (key ? `${key.slice(0, 12)}... (len=${key.length})` : '(missing)');
+    console.log('[Env] --- Production Environment Diagnostic ---');
     console.log('[Env] OPENROUTER_API_KEY:', mask(value.OPENROUTER_API_KEY));
+    console.log('[Env] OPENROUTER_API_KEY (raw process.env):', mask(process.env.OPENROUTER_API_KEY));
+    console.log('[Env] OPENROUTER_MODEL:', value.OPENROUTER_MODEL);
     console.log('[Env] EXPLORIUM_API_KEY:', mask(value.EXPLORIUM_API_KEY));
     console.log('[Env] SUPABASE_URL:', value.SUPABASE_URL ? 'set' : '(missing)');
     console.log('[Env] NODE_ENV:', value.NODE_ENV);
+    console.log('[Env] VERCEL_ENV:', process.env.VERCEL_ENV || '(not set)');
+    console.log('[Env] process.cwd():', process.cwd());
+    console.log('[Env] --- End Diagnostic ---');
   }
 
   cachedEnv = value;

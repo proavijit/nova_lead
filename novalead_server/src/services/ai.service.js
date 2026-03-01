@@ -54,10 +54,33 @@ async function requestWithRetry(requestFn, retries = 1) {
 }
 
 async function parseNLToFilters(prompt) {
+  // Re-read env at call time, not module-load time, to handle Vercel cold starts
+  const currentEnv = getEnv();
+
+  // Diagnostic: log key availability on every AI call in production
+  if (process.env.VERCEL || process.env.NODE_ENV === 'production') {
+    const rawKey = process.env.OPENROUTER_API_KEY;
+    const envKey = currentEnv.OPENROUTER_API_KEY;
+    console.log('[AI SERVICE] Diagnostics:', {
+      rawKeyDefined: rawKey !== undefined,
+      rawKeyLength: rawKey?.length ?? 0,
+      rawKeyPrefix: rawKey ? rawKey.slice(0, 12) + '...' : '(not set)',
+      rawKeyHasNewline: rawKey ? /[\r\n]/.test(rawKey) : false,
+      rawKeyHasQuotes: rawKey ? /["']/.test(rawKey) : false,
+      envKeyDefined: envKey !== undefined,
+      envKeyLength: envKey?.length ?? 0,
+      envKeyPrefix: envKey ? envKey.slice(0, 12) + '...' : '(not set)',
+      model: currentEnv.OPENROUTER_MODEL,
+      nodeEnv: process.env.NODE_ENV,
+      isVercel: !!process.env.VERCEL,
+      vercelEnv: process.env.VERCEL_ENV || '(not set)'
+    });
+  }
+
   try {
     const response = await requestWithRetry(() =>
       openrouter.post('/chat/completions', {
-        model: env.OPENROUTER_MODEL,
+        model: currentEnv.OPENROUTER_MODEL,
         messages: [
           { role: 'system', content: SYSTEM_PROMPT },
           { role: 'user', content: prompt }
@@ -84,15 +107,26 @@ async function parseNLToFilters(prompt) {
     }
     const status = err?.response?.status;
     const code = err?.code;
+    const responseBody = err?.response?.data;
 
-    const keyPrefix = env.OPENROUTER_API_KEY
-      ? env.OPENROUTER_API_KEY.slice(0, 10) + '...'
+    const keyPrefix = currentEnv.OPENROUTER_API_KEY
+      ? currentEnv.OPENROUTER_API_KEY.slice(0, 12) + '...'
       : '(not set)';
 
     if (status === 401) {
-      console.error('[AI SERVICE] 401 Unauthorized. OPENROUTER_API_KEY prefix:', keyPrefix);
+      console.error('[AI SERVICE] 401 Unauthorized - Full diagnostic:', {
+        keyPrefix,
+        keyLength: currentEnv.OPENROUTER_API_KEY?.length ?? 0,
+        responseBody: JSON.stringify(responseBody),
+        rawProcessEnvKeyPrefix: process.env.OPENROUTER_API_KEY
+          ? process.env.OPENROUTER_API_KEY.slice(0, 12) + '...'
+          : '(not set in process.env)',
+        rawProcessEnvKeyLength: process.env.OPENROUTER_API_KEY?.length ?? 0,
+        isVercel: !!process.env.VERCEL,
+        vercelEnv: process.env.VERCEL_ENV || '(not set)'
+      });
       throw new AppError(
-        'AI service is unauthorized. The OPENROUTER_API_KEY may be invalid or expired. Check Vercel environment variables.',
+        'AI service returned 401 Unauthorized. Check OPENROUTER_API_KEY in Vercel env vars. See server logs for diagnostic details.',
         503
       );
     }
@@ -101,6 +135,7 @@ async function parseNLToFilters(prompt) {
       status,
       code,
       keyPrefix,
+      responseBody: JSON.stringify(responseBody),
       message: err?.message
     });
 
