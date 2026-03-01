@@ -10,22 +10,29 @@ const errorHandler = require('./utils/errorHandler');
 const apiRouter = require('./routes');
 
 const app = express();
-const env = getEnv();
-const corsOriginList = env.CORS_ORIGIN.split(',').map((origin) => origin.trim()).filter(Boolean);
 
-app.use(helmet());
+// Enable CORS at the very beginning of the middleware chain
 app.use(
   cors({
-    origin: true,
+    origin: (origin, callback) => callback(null, true), // Reflect request origin
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: [
       "Content-Type",
       "Authorization",
       "X-Requested-With",
+      "Accept",
     ],
+    optionsSuccessStatus: 200, // Important for some older browsers/clients
   })
 );
+
+// Explicitly handle preflight requests for all routes
+app.options('*', cors());
+
+app.use(helmet({
+  crossOriginResourcePolicy: false, // Essential for cross-origin API access
+}));
 
 app.use(express.json());
 app.use(morgan('combined', { stream: logger.stream }));
