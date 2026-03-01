@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { Coins, Database, Fingerprint, User, Building2 } from 'lucide-react'
+import { Coins, Database, Fingerprint, Hash, User, Building2 } from 'lucide-react'
 
 import { ErrorAlert } from '@/components/common/ErrorAlert'
 import { CacheStatusBadge } from '@/components/search/CacheStatusBadge'
@@ -72,7 +72,16 @@ export default function DashboardHistoryPage() {
                     title={item.cache_id}
                   >
                     <Fingerprint className="h-3.5 w-3.5 text-slate-500" />
-                    {item.cache_id.slice(0, 8)}...
+                    Cache: {item.cache_id.slice(0, 8)}...
+                  </span>
+                )}
+                {item.filter_hash && (
+                  <span
+                    className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 font-mono text-xs text-slate-500"
+                    title={`Full hash: ${item.filter_hash}`}
+                  >
+                    <Hash className="h-3.5 w-3.5" />
+                    Hash: {item.filter_hash.slice(0, 10)}...
                   </span>
                 )}
               </div>

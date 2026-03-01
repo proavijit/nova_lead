@@ -21,6 +21,7 @@ export interface SearchHistoryItem {
   credits_used?: number
   credits_charged?: number
   cache_id?: string | null
+  filter_hash?: string | null
   cache_hit?: boolean
   cache_strategy?: 'hash' | 'miss' | 'semantic' | string | null
   canonical_filters?: Record<string, unknown> | null

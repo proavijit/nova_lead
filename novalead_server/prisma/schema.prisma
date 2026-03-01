@@ -69,6 +69,7 @@ model Search {
   cache_hit         Boolean? @default(false)
   cache_strategy    String?
   cache_id          String?  @db.Uuid
+  filter_hash       String?  // Filter hash for cache debugging
   canonical_filters Json?
   lead_snapshot     Json?
   created_at        DateTime @default(now()) @db.Timestamptz(6)

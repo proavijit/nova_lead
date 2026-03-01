@@ -20,6 +20,7 @@ export function useSearchHistory() {
         cache_hit: Boolean(item.cache_hit),
         cache_strategy: item.cache_strategy ?? (item.cache_hit ? 'hash' : 'miss'),
         cache_id: item.cache_id ?? null,
+        filter_hash: item.filter_hash ?? null,
         lead_snapshot: item.lead_snapshot ?? null
       }))
     },

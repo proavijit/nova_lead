@@ -115,6 +115,7 @@ async function saveSearch(userId, prompt, filters, totalResults, metadata = {}) 
         filters: filters || null,
         total_results: totalResults || 0,
         cache_id: metadata.cache_id || null,
+        filter_hash: metadata.filter_hash || null,
         cache_hit: Boolean(metadata.cache_hit),
         cache_strategy: metadata.cache_strategy || null,
         credits_charged: Number.isInteger(metadata.credits_charged) ? metadata.credits_charged : 0,
@@ -188,7 +189,8 @@ async function listSearches(userId, page = 1, limit = 10) {
       prompt: item.prompt ?? item.query ?? '',
       total_results: item.total_results ?? 0,
       credits_charged: item.credits_charged ?? 0,
-      lead_snapshot: item.lead_snapshot || []
+      lead_snapshot: item.lead_snapshot || [],
+      filter_hash: item.filter_hash ?? null
     }));
 
     return {

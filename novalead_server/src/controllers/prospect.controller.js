@@ -51,13 +51,15 @@ async function respondWithCacheHit({
   parsedFilters,
   page,
   cacheRow,
-  canonicalFilters
+  canonicalFilters,
+  filterHash
 }) {
   const cachedLeads = await getGlobalCachedLeads(cacheRow.id);
   const leads = cachedLeads.map((lead) => cachedLeadToResponse(lead));
 
   const search = await saveSearch(userId, prompt, parsedFilters, cacheRow.total_results || leads.length, {
     cache_id: cacheRow.id,
+    filter_hash: filterHash,
     cache_hit: true,
     cache_strategy: 'hash',
     credits_charged: 0,
@@ -115,7 +117,7 @@ exports.search = async (req, res, next) => {
 
     const readyCache = await getReadyGlobalCacheByHash(filterHash);
     if (readyCache) {
-      debugLog('Cache HIT!', { cacheId: readyCache.id, totalResults: readyCache.total_results });
+      debugLog('Cache HIT!', { cacheId: readyCache.id, totalResults: readyCache.total_results, filterHash: filterHash.slice(0, 12) });
       return respondWithCacheHit({
         res,
         userId,
@@ -123,7 +125,8 @@ exports.search = async (req, res, next) => {
         parsedFilters: parsed,
         page,
         cacheRow: readyCache,
-        canonicalFilters
+        canonicalFilters,
+        filterHash
       });
     }
 
@@ -141,7 +144,8 @@ exports.search = async (req, res, next) => {
         parsedFilters: parsed,
         page,
         cacheRow: pendingOrExisting,
-        canonicalFilters
+        canonicalFilters,
+        filterHash
       });
     }
 
@@ -157,7 +161,8 @@ exports.search = async (req, res, next) => {
           parsedFilters: parsed,
           page,
           cacheRow: eventuallyReady,
-          canonicalFilters
+          canonicalFilters,
+          filterHash
         });
       }
     }
@@ -171,7 +176,7 @@ exports.search = async (req, res, next) => {
       try {
         await saveGlobalCachedLeads(pendingCacheId, leads, exploResult.data || []);
         await markGlobalCacheReady(pendingCacheId, exploResult.total_results || leads.length, expiresAt);
-        debugLog('Saved to global cache:', { cacheId: pendingCacheId, totalResults: exploResult.total_results });
+        debugLog('Saved to global cache:', { cacheId: pendingCacheId, totalResults: exploResult.total_results, filterHash: filterHash.slice(0, 12), expiresAt });
       } catch (cacheErr) {
         debugLog('Cache save error (non-fatal):', cacheErr.message);
       }
@@ -179,6 +184,7 @@ exports.search = async (req, res, next) => {
 
     const search = await saveSearch(userId, prompt, parsed, exploResult.total_results || 0, {
       cache_id: pendingCacheId,
+      filter_hash: filterHash,
       cache_hit: false,
       cache_strategy: 'miss',
       credits_charged: CREDIT_COST_PER_SEARCH,
