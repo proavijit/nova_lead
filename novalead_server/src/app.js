@@ -18,17 +18,23 @@ const app = express();
  */
 
 const corsOptions = {
-  origin: [
-    'https://novaleadclient.vercel.app',
-    'http://localhost:3000'
-  ],
+  origin: function(origin, callback) {
+    const allowed = [
+      'https://novaleadclient.vercel.app',
+      'http://localhost:3000'
+    ];
+    if (!origin || allowed.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   optionsSuccessStatus: 200
 };
 app.use(cors(corsOptions));
-app.options('*', cors(corsOptions));
 
 /**
  * =========================================
