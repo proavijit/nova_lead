@@ -17,19 +17,18 @@ const app = express();
  * =========================================
  */
 
-app.use(cors({
-  origin: 'https://novaleadclient.vercel.app',
+const corsOptions = {
+  origin: [
+    'https://novaleadclient.vercel.app',
+    'http://localhost:3000'
+  ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept']
-}));
-
-app.options('*', (req, res) => {
-  res.header('Access-Control-Allow-Origin', 'https://novaleadclient.vercel.app');
-  res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,PATCH,OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Requested-With,Accept');
-  res.sendStatus(200);
-});
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  optionsSuccessStatus: 200
+};
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 
 /**
  * =========================================
