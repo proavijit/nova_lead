@@ -18,26 +18,26 @@ const app = express();
  */
 
 const allowedOrigins = [
-  'https://novaleadclient.vercel.app'
+  'https://novaleadclient.vercel.app',
+  'http://localhost:3000',
+  'http://localhost:5173'
 ];
 
 app.use(cors({
   origin: function (origin, callback) {
     // Allow Postman / server-to-server (no origin)
-    if (!origin) return callback(null, true);
-
-    if (allowedOrigins.includes(origin)) {
+    if (!origin || allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
-
-    return callback(new Error('Not allowed by CORS'));
+    return callback(null, false); // Just return false instead of Error to avoid breaking preflight
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+  exposedHeaders: ['Set-Cookie']
 }));
 
-// IMPORTANT: Explicit preflight handling
+// Handle preflight explicitly for all routes
 app.options('*', cors());
 
 /**
