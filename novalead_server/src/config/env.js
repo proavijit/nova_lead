@@ -26,7 +26,7 @@ const envSchema = Joi.object({
   JWT_EXPIRES_IN: Joi.string().default('7d'),
 
   OPENROUTER_API_KEY: Joi.string().required(),
-  OPENROUTER_MODEL: Joi.string().default('openai/gpt-4o'),
+  OPENROUTER_MODEL: Joi.string().default('openai/gpt-4o-mini'),
   OPENROUTER_TIMEOUT_MS: Joi.number().integer().min(1000).default(15000),
 
   EXPLORIUM_API_KEY: Joi.string().required(),

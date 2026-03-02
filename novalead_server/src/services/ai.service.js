@@ -38,7 +38,7 @@ function shouldRetry(err) {
   return RETRYABLE_ERR_CODES.has(err?.code) || status === 429 || (status >= 500 && status <= 599);
 }
 
-async function requestWithRetry(requestFn, retries = 1) {
+async function requestWithRetry(requestFn, retries = 3) {
   let lastErr;
   for (let attempt = 0; attempt <= retries; attempt += 1) {
     try {
