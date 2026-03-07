@@ -18,7 +18,7 @@ const app = express();
  */
 
 const corsOptions = {
-  origin: function(origin, callback) {
+  origin: function (origin, callback) {
     const allowed = [
       'https://novaleadclient.vercel.app',
       'http://localhost:3000'
@@ -32,8 +32,12 @@ const corsOptions = {
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-  optionsSuccessStatus: 200
+  preflightContinue: false,
+  optionsSuccessStatus: 204
 };
+
+// Handle preflight requests
+app.options('*', cors(corsOptions));
 app.use(cors(corsOptions));
 
 /**
