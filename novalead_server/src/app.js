@@ -13,22 +13,41 @@ const app = express();
 
 /**
  * =========================================
- * CORS (MUST BE FIRST - VERCEL SAFE)
+ * CORS CONFIG
  * =========================================
  */
 
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
+  'https://novaleadclient.vercel.app'
+];
+
 const corsOptions = {
-  origin: 'https://novaleadclient.vercel.app', // Explicitly allow only this origin
+  origin: function (origin, callback) {
+    // allow requests with no origin (mobile apps, postman, curl)
+    if (!origin) return callback(null, true);
+
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    } else {
+      return callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-  preflightContinue: false,
   optionsSuccessStatus: 204
 };
 
-// Handle all OPTIONS requests immediately
-app.options('*', cors(corsOptions));
+/**
+ * =========================================
+ * CORS MIDDLEWARE (FIRST)
+ * =========================================
+ */
+
 app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 
 /**
  * =========================================
@@ -36,13 +55,15 @@ app.use(cors(corsOptions));
  * =========================================
  */
 
-app.use(helmet({
-  crossOriginResourcePolicy: false,
-}));
+app.use(
+  helmet({
+    crossOriginResourcePolicy: false
+  })
+);
 
 /**
  * =========================================
- * MIDDLEWARE
+ * GENERAL MIDDLEWARE
  * =========================================
  */
 
