@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useMemo } from 'react'
 import { useParams } from 'next/navigation'
@@ -50,9 +50,10 @@ export default function DashboardHistoryDetailPage() {
   return (
     <div className="space-y-6">
       <div className="space-y-1">
-        <h2 className="text-2xl font-semibold">Search Detail</h2>
+        <h2 className="text-2xl font-bold">Search Detail</h2>
         <p className="text-slate-600">{data?.search?.prompt || 'Loading prompt...'}</p>
       </div>
+
       {data?.search && (
         <div className="flex flex-wrap items-center gap-2 text-sm text-slate-600">
           <CacheStatusBadge cacheHit={data.search.cache_hit} cacheStrategy={data.search.cache_strategy} />
@@ -61,23 +62,23 @@ export default function DashboardHistoryDetailPage() {
             Credits charged: <strong className="text-slate-900">{data.search.credits_charged ?? 0}</strong>
           </span>
           {data.search.cache_id && (
-            <span
-              className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 font-mono text-xs"
-              title={data.search.cache_id}
-            >
+            <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 font-mono text-xs" title={data.search.cache_id}>
               <Fingerprint className="h-3.5 w-3.5 text-slate-500" />
               {data.search.cache_id}
             </span>
           )}
         </div>
       )}
+
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Results</h2>
-        <Button variant="outline" onClick={exportCsv} disabled={!leads.length}>
+        <h3 className="text-xl font-bold">Results</h3>
+        <Button variant="outline" onClick={exportCsv} disabled={!leads.length} className="rounded-lg border-slate-300 bg-white">
           Export CSV
         </Button>
       </div>
+
       <SearchResultsTable leads={leads} isLoading={isLoading} />
     </div>
   )
 }
+
